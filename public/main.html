@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Main Canvas</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #000;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      background: #fff;
+    }
+    #controls {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 10;
+    }
+    button {
+      margin-right: 5px;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <button id="screenshot">Screenshot Canvas</button>
+  </div>
+  <canvas id="mainCanvas"></canvas>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class FloatingImage {
+      constructor(img) {
+        this.img = img;
+        this.x = Math.random() * (canvas.width - img.width);
+        this.y = Math.random() * (canvas.height - img.height);
+        this.vx = (Math.random() * 0.4 + 0.2) * (Math.random() < 0.5 ? 1 : -1);
+        this.vy = (Math.random() * 0.4 + 0.2) * (Math.random() < 0.5 ? 1 : -1);
+        this.alpha = 1;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x <= 0 || this.x + this.img.width >= canvas.width) this.vx *= -1;
+        if (this.y <= 0 || this.y + this.img.height >= canvas.height) this.vy *= -1;
+        this.alpha = Math.max(0, this.alpha - 0.0005);
+      }
+      draw() {
+        ctx.globalAlpha = this.alpha;
+        ctx.drawImage(this.img, this.x, this.y);
+        ctx.globalAlpha = 1;
+      }
+    }
+
+    const activeImages = [];
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const imgObj of activeImages) {
+        imgObj.update();
+        imgObj.draw();
+      }
+      requestAnimationFrame(animate);
+    }
+    animate();
+
+    // Empfang neuer Bilder von iPads
+    socket.on('newImage', (dataUrl) => {
+      const img = new Image();
+      img.onload = () => activeImages.push(new FloatingImage(img));
+      img.src = dataUrl;
+    });
+
+    // Screenshot vom Main Canvas
+    document.getElementById('screenshot').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `main_canvas_${Date.now()}.png`;
+      link.click();
+    });
+  </script>
+</body>
+</html>

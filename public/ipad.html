@@ -1,0 +1,102 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>iPad Draw</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #f0f0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #controls {
+      margin-bottom: 10px;
+    }
+    canvas {
+      background: #fff;
+      box-shadow: 0 0 8px rgba(0,0,0,0.2);
+      touch-action: none;
+    }
+    button {
+      margin: 0 5px;
+      font-size: 16px;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <button id="clear">Clear</button>
+    <button id="send">Send</button>
+    <button id="screenshot">Screenshot Draw</button>
+  </div>
+  <canvas id="drawArea" width="600" height="400"></canvas>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const canvas = document.getElementById('drawArea');
+    const ctx = canvas.getContext('2d');
+
+    let drawing = false;
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: clientX - rect.left, y: clientY - rect.top };
+    }
+
+    function startDraw(e) {
+      drawing = true;
+      ctx.beginPath();
+      const { x, y } = getPos(e);
+      ctx.moveTo(x, y);
+    }
+
+    function draw(e) {
+      if (!drawing) return;
+      const { x, y } = getPos(e);
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    }
+
+    function endDraw() { drawing = false; }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('mouseleave', endDraw);
+    canvas.addEventListener('touchstart', startDraw, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', endDraw);
+
+    document.getElementById('clear').addEventListener('click', () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    document.getElementById('send').addEventListener('click', () => {
+      const dataUrl = canvas.toDataURL('image/png');
+      socket.emit('sendImage', dataUrl);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    document.getElementById('screenshot').addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `drawing_${Date.now()}.png`;
+      link.click();
+    });
+  </script>
+</body>
+</html>
