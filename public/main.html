@@ -1,37 +1,52 @@
 <!doctype html>
 <html>
+
 <head>
   <meta charset="utf-8" />
   <title>Main Canvas</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       height: 100%;
       background: #000;
       overflow: hidden;
     }
+
     canvas {
       display: block;
       background: #fff;
     }
+
     #controls {
       position: fixed;
       top: 10px;
       left: 10px;
       z-index: 10;
     }
+
     button {
       margin-right: 5px;
       padding: 6px 12px;
       font-size: 14px;
       cursor: pointer;
     }
+
+    #status {
+      color: #fff;
+      margin-left: 8px;
+      font-family: Arial, sans-serif;
+      font-size: 13px;
+    }
   </style>
 </head>
+
 <body>
   <div id="controls">
     <button id="screenshot">Screenshot Canvas</button>
+    <span id="status">fade: ?</span>
   </div>
   <canvas id="mainCanvas"></canvas>
 
@@ -40,6 +55,10 @@
     const socket = io();
     const canvas = document.getElementById('mainCanvas');
     const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
+
+    // local copy of server settings (keeps UI reactive)
+    let serverSettings = { fade: true };
 
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -51,8 +70,8 @@
     class FloatingImage {
       constructor(img) {
         this.img = img;
-        this.x = Math.random() * (canvas.width - img.width);
-        this.y = Math.random() * (canvas.height - img.height);
+        this.x = Math.random() * Math.max(0, canvas.width - img.width);
+        this.y = Math.random() * Math.max(0, canvas.height - img.height);
         this.vx = (Math.random() * 0.4 + 0.2) * (Math.random() < 0.5 ? 1 : -1);
         this.vy = (Math.random() * 0.4 + 0.2) * (Math.random() < 0.5 ? 1 : -1);
         this.alpha = 1;
@@ -62,7 +81,14 @@
         this.y += this.vy;
         if (this.x <= 0 || this.x + this.img.width >= canvas.width) this.vx *= -1;
         if (this.y <= 0 || this.y + this.img.height >= canvas.height) this.vy *= -1;
-        this.alpha = Math.max(0, this.alpha - 0.0005);
+
+        // fade nur wenn serverSettings.fade = true
+        if (serverSettings.fade) {
+          this.alpha = Math.max(0, this.alpha - 0.0005);
+        } else {
+          // wenn Fade ausgeschaltet wird, stelle sicher, dass Bild voll sichtbar bleibt
+          this.alpha = 1;
+        }
       }
       draw() {
         ctx.globalAlpha = this.alpha;
@@ -90,6 +116,22 @@
       img.src = dataUrl;
     });
 
+    // Wenn Admin-Settings initial gesendet werden (bei Verbindung)
+    socket.on('admin:init', (s) => {
+      serverSettings = s;
+      statusEl.textContent = `fade: ${serverSettings.fade ? 'ON' : 'OFF'}`;
+    });
+
+    // Wenn Admin-Settings aktualisiert werden
+    socket.on('admin:update', (s) => {
+      serverSettings = s;
+      statusEl.textContent = `fade: ${serverSettings.fade ? 'ON' : 'OFF'}`;
+      // wenn fade wurde ausgeschaltet → sofort alpha auf 1 setzen
+      if (!serverSettings.fade) {
+        for (let obj of activeImages) obj.alpha = 1;
+      }
+    });
+
     // Screenshot vom Main Canvas
     document.getElementById('screenshot').addEventListener('click', () => {
       const link = document.createElement('a');
@@ -99,4 +141,5 @@
     });
   </script>
 </body>
+
 </html>

@@ -1,10 +1,13 @@
 <!doctype html>
 <html>
+
 <head>
   <meta charset="utf-8" />
   <title>iPad Draw</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       height: 100%;
@@ -14,14 +17,17 @@
       align-items: center;
       justify-content: center;
     }
+
     #controls {
       margin-bottom: 10px;
     }
+
     canvas {
       background: #fff;
-      box-shadow: 0 0 8px rgba(0,0,0,0.2);
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
       touch-action: none;
     }
+
     button {
       margin: 0 5px;
       font-size: 16px;
@@ -30,6 +36,7 @@
     }
   </style>
 </head>
+
 <body>
   <div id="controls">
     <button id="clear">Clear</button>
@@ -99,4 +106,5 @@
     });
   </script>
 </body>
+
 </html>

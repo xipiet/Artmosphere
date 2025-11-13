@@ -1,0 +1,91 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <title>Admin</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <style>
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+            color: #222;
+        }
+
+        h1 {
+            margin: 0 0 12px 0;
+            font-size: 20px;
+        }
+
+        label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        button {
+            margin-left: 8px;
+            padding: 6px 10px;
+            cursor: pointer;
+        }
+
+        #status {
+            margin-left: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Admin</h1>
+    <div>
+        <label>
+            <input type="checkbox" id="toggleFade" />
+            Fade over time
+            <span id="status"></span>
+        </label>
+        <div style="margin-top:16px;">
+            <button id="apply">Apply</button>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        const toggleFade = document.getElementById('toggleFade');
+        const applyBtn = document.getElementById('apply');
+        const statusSpan = document.getElementById('status');
+
+        // Init: server schickt aktuelle Settings
+        socket.on('admin:init', (s) => {
+            if (typeof s.fade === 'boolean') {
+                toggleFade.checked = s.fade;
+                statusSpan.textContent = s.fade ? 'ON' : 'OFF';
+            }
+        });
+
+        // Wenn Admin-Settings von anderen Admins geändert werden
+        socket.on('admin:update', (s) => {
+            if (typeof s.fade === 'boolean') {
+                toggleFade.checked = s.fade;
+                statusSpan.textContent = s.fade ? 'ON' : 'OFF';
+            }
+        });
+
+        // Apply: sende neue Settings an Server (minimal)
+        applyBtn.addEventListener('click', () => {
+            const newSettings = { fade: !!toggleFade.checked };
+            socket.emit('admin:update', newSettings);
+            // ui update sofort
+            statusSpan.textContent = newSettings.fade ? '' : 'OFF';
+        });
+    </script>
+</body>
+
+</html>
