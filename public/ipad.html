@@ -1,49 +1,140 @@
 <!doctype html>
 <html>
-
 <head>
   <meta charset="utf-8" />
   <title>iPad Draw</title>
   <link rel="icon" type="image/png" href="/favicon.png" />
   <style>
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       height: 100%;
-      background: #f0f0f0;
+      background: #e6e6e6;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
+      font-family: sans-serif;
+      user-select: none;
     }
 
-    #controls {
-      margin-bottom: 10px;
-    }
-
-    canvas {
+    /* TOP TOOLBAR */
+    #toolbar {
+      display: flex;
+      gap: 12px;
+      padding: 10px;
       background: #fff;
-      box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
-      touch-action: none;
+      box-shadow: 0 0 8px rgba(0,0,0,0.15);
+      margin-top: 15px;
+      border-radius: 12px;
+      align-items: center;
     }
 
-    button {
-      margin: 0 5px;
-      font-size: 16px;
-      padding: 6px 12px;
+    #colors {
+      display: flex;
+      gap: 6px;
+    }
+
+    .color-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid #ccc;
       cursor: pointer;
+    }
+
+    #sizes {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .size-btn {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      border: 2px solid #ccc;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    #stroke-slider {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 120px;
+    }
+
+    #erase {
+      padding: 4px 10px;
+      background: #ff5050;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    /* DRAWING AREA */
+    canvas {
+      margin-top: 15px;
+      background: #fff;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+      touch-action: none;
+      border-radius: 8px;
+    }
+
+    /* BOTTOM BUTTONS */
+    #controls {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    #controls button {
+      padding: 8px 14px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 6px;
     }
   </style>
 </head>
 
 <body>
+
+  <!-- toolbar -->
+  <div id="toolbar">
+
+    <!-- colors -->
+    <div id="colors">
+      <div class="color-btn" data-color="#000000" style="background:#000000"></div>
+      <div class="color-btn" data-color="#ff0000" style="background:#ff0000"></div>
+      <div class="color-btn" data-color="#00aaff" style="background:#00aaff"></div>
+      <div class="color-btn" data-color="#00cc44" style="background:#00cc44"></div>
+      <div class="color-btn" data-color="#ff9900" style="background:#ff9900"></div>
+      <div class="color-btn" data-color="#ffffff" style="background:#ffffff; border:2px solid #888"></div>
+    </div>
+
+    <!-- stroke slider -->
+    <div id="stroke-slider">
+      <label for="sizeSlider">Stift:</label>
+      <input type="range" id="sizeSlider" min="1" max="30" value="4">
+    </div>
+
+    <!-- eraser -->
+    <button id="erase">Eraser</button>
+
+  </div>
+
+  <!-- canvas -->
+  <canvas id="drawArea" width="800" height="500"></canvas>
+
+  <!-- bottom buttons -->
   <div id="controls">
     <button id="clear">Clear</button>
     <button id="send">Send</button>
     <button id="screenshot">Screenshot Draw</button>
   </div>
-  <canvas id="drawArea" width="600" height="400"></canvas>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -52,6 +143,14 @@
     const ctx = canvas.getContext('2d');
 
     let drawing = false;
+    let currentColor = "#000000";
+    let currentSize = 4;
+    let eraseMode = false;
+
+    const sizeSlider = document.getElementById("sizeSlider");
+    sizeSlider.addEventListener("input", () => {
+      currentSize = parseInt(sizeSlider.value);
+    });
 
     function getPos(e) {
       const rect = canvas.getBoundingClientRect();
@@ -70,41 +169,53 @@
     function draw(e) {
       if (!drawing) return;
       const { x, y } = getPos(e);
+
       ctx.lineTo(x, y);
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+      ctx.strokeStyle = eraseMode ? "#ffffff" : currentColor;
+      ctx.lineWidth = currentSize;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
       ctx.stroke();
     }
 
     function endDraw() { drawing = false; }
 
-    canvas.addEventListener('mousedown', startDraw);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', endDraw);
-    canvas.addEventListener('mouseleave', endDraw);
-    canvas.addEventListener('touchstart', startDraw, { passive: false });
-    canvas.addEventListener('touchmove', draw, { passive: false });
-    canvas.addEventListener('touchend', endDraw);
+    canvas.addEventListener("mousedown", startDraw);
+    canvas.addEventListener("mousemove", draw);
+    canvas.addEventListener("mouseup", endDraw);
 
-    document.getElementById('clear').addEventListener('click', () => {
+    canvas.addEventListener("touchstart", startDraw, { passive:false });
+    canvas.addEventListener("touchmove", draw, { passive:false });
+    canvas.addEventListener("touchend", endDraw);
+
+    document.querySelectorAll(".color-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        eraseMode = false;
+        currentColor = btn.dataset.color;
+      });
+    });
+
+    document.getElementById("erase").addEventListener("click", () => {
+      eraseMode = true;
+    });
+
+    document.getElementById("clear").addEventListener("click", () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     });
 
-    document.getElementById('send').addEventListener('click', () => {
-      const dataUrl = canvas.toDataURL('image/png');
-      socket.emit('sendImage', dataUrl);
+    document.getElementById("send").addEventListener("click", () => {
+      const dataUrl = canvas.toDataURL("image/png");
+      socket.emit("sendImage", dataUrl);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     });
 
-    document.getElementById('screenshot').addEventListener('click', () => {
-      const link = document.createElement('a');
-      link.href = canvas.toDataURL('image/png');
+    document.getElementById("screenshot").addEventListener("click", () => {
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
       link.download = `drawing_${Date.now()}.png`;
       link.click();
     });
   </script>
-</body>
 
+</body>
 </html>
