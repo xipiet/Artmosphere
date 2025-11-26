@@ -32,10 +32,21 @@ socket.on('app:init', (d) => {
 
 socket.on('config:changed', (conf) => {
     currentConfig = conf;
+
     document.getElementById('currentThemeName').textContent = conf.activeTheme;
     status.textContent = 'Config updated';
     updateThemeDropdown();
     previewBg(currentConfig.themes[currentConfig.activeTheme].image);
+
+    const t = currentConfig.themes[currentConfig.activeTheme];
+    document.getElementById('z0start').value = t.zones[0].yStartPct;
+    document.getElementById('z0end').value = t.zones[0].yEndPct;
+
+    document.getElementById('z1start').value = t.zones[1].yStartPct;
+    document.getElementById('z1end').value = t.zones[1].yEndPct;
+
+    document.getElementById('z2start').value = t.zones[2].yStartPct;
+    document.getElementById('z2end').value = t.zones[2].yEndPct;
 });
 
 socket.on('admin:updateSettings', (settings) => {
