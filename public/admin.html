@@ -1,91 +1,199 @@
 <!doctype html>
 <html>
-
 <head>
-    <meta charset="utf-8" />
-    <title>Admin</title>
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <style>
-        html,
-        body {
-            height: 100%;
-            margin: 0;
-            padding: 20px;
-            font-family: Arial, sans-serif;
-            background: #f7f7f7;
-            color: #222;
-        }
-
-        h1 {
-            margin: 0 0 12px 0;
-            font-size: 20px;
-        }
-
-        label {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 12px;
-        }
-
-        button {
-            margin-left: 8px;
-            padding: 6px 10px;
-            cursor: pointer;
-        }
-
-        #status {
-            margin-left: 10px;
-            font-weight: bold;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <title>Admin</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <style>
+    body{font-family:Arial, sans-serif;background:#fafafa;padding:18px;color:#222}
+    label{display:block;margin-top:10px}
+    input[type="text"], input[type="number"]{padding:6px;width:300px}
+    button{padding:8px 12px;margin-top:10px;cursor:pointer}
+    .preview{margin-top:12px;width:640px;height:360px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;background:#eee}
+  </style>
 </head>
-
 <body>
-    <h1>Admin</h1>
-    <div>
-        <label>
-            <input type="checkbox" id="toggleFade" />
-            Fade over time
-            <span id="status"></span>
-        </label>
-        <div style="margin-top:16px;">
-            <button id="apply">Apply</button>
-        </div>
+  <h2>Admin — Theme Editor</h2>
+
+  <div>
+    <h3 id="currentThemeName">Ocean</h3>
+
+    <div style="margin-top:10px">
+      <label>
+        <input type="checkbox" id="fadeToggle" checked> Fade enabled (images fade out over time)
+      </label>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
+    <div style="margin-top:10px">
+      <strong>Zones (percent 0–100). Must be sequential and cover 0..100</strong>
+      <div>
+        <label>Zone 1 — yStart% <input id="z0start" type="number" value="0" min="0" max="100"> yEnd% <input id="z0end" type="number" value="30" min="0" max="100"></label>
+      </div>
+      <div>
+        <label>Zone 2 — yStart% <input id="z1start" type="number" value="30" min="0" max="100"> yEnd% <input id="z1end" type="number" value="70" min="0" max="100"></label>
+      </div>
+      <div>
+        <label>Zone 3 — yStart% <input id="z2start" type="number" value="70" min="0" max="100"> yEnd% <input id="z2end" type="number" value="100" min="0" max="100"></label>
+      </div>
+    </div>
 
-        const toggleFade = document.getElementById('toggleFade');
-        const applyBtn = document.getElementById('apply');
-        const statusSpan = document.getElementById('status');
+    <div>
+      <button id="saveBtn">Save Config</button>
+      <span id="status"></span>
+    </div>
 
-        // Init: server schickt aktuelle Settings
-        socket.on('admin:init', (s) => {
-            if (typeof s.fade === 'boolean') {
-                toggleFade.checked = s.fade;
-                statusSpan.textContent = s.fade ? 'ON' : 'OFF';
-            }
+    <div style="margin-top:15px">
+      <label>Switch Theme:
+        <select id="themeDropdown">
+          <option value="">Loading themes...</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="preview" id="preview">Preview (loads image if available)</div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const preview = document.getElementById('preview');
+    const status = document.getElementById('status');
+    const fadeToggle = document.getElementById('fadeToggle');
+    const themeDropdown = document.getElementById('themeDropdown');
+
+    let currentConfig = null;
+    let currentSettings = null;
+
+    socket.on('app:init', (d) => {
+      currentConfig = d.config || d;
+      currentSettings = d.settings || { fade: true };
+      
+      document.getElementById('currentThemeName').textContent = currentConfig.activeTheme || 'ocean';
+      fadeToggle.checked = currentSettings.fade !== false;
+      
+      // Populate theme dropdown
+      updateThemeDropdown();
+      
+      // Load current theme data
+      if (currentConfig.themes && currentConfig.themes[currentConfig.activeTheme]) {
+        const t = currentConfig.themes[currentConfig.activeTheme];
+        document.getElementById('z0start').value = t.zones[0].yStartPct;
+        document.getElementById('z0end').value = t.zones[0].yEndPct;
+        document.getElementById('z1start').value = t.zones[1].yStartPct;
+        document.getElementById('z1end').value = t.zones[1].yEndPct;
+        document.getElementById('z2start').value = t.zones[2].yStartPct;
+        document.getElementById('z2end').value = t.zones[2].yEndPct;
+      }
+      previewBg(currentConfig.themes[currentConfig.activeTheme].image);
+    });
+
+    socket.on('config:changed', (conf) => {
+      currentConfig = conf;
+      document.getElementById('currentThemeName').textContent = conf.activeTheme;
+      status.textContent = 'Config updated';
+      updateThemeDropdown();
+      previewBg(currentConfig.themes[currentConfig.activeTheme].image);
+    });
+
+    socket.on('admin:updateSettings', (settings) => {
+      currentSettings = settings;
+      fadeToggle.checked = settings.fade !== false;
+    });
+
+    function updateThemeDropdown() {
+      themeDropdown.innerHTML = '';
+      if (currentConfig && currentConfig.themes) {
+        Object.keys(currentConfig.themes).forEach(themeName => {
+          const option = document.createElement('option');
+          option.value = themeName;
+          option.textContent = themeName;
+          if (themeName === currentConfig.activeTheme) {
+            option.selected = true;
+          }
+          themeDropdown.appendChild(option);
         });
+      }
+    }
 
-        // Wenn Admin-Settings von anderen Admins geändert werden
-        socket.on('admin:update', (s) => {
-            if (typeof s.fade === 'boolean') {
-                toggleFade.checked = s.fade;
-                statusSpan.textContent = s.fade ? 'ON' : 'OFF';
-            }
-        });
+    function previewBg(fn) {
+      preview.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = '/theme-image/' + encodeURIComponent(fn);
+      img.style.maxWidth = '100%';
+      img.style.maxHeight = '100%';
+      img.onerror = () => preview.textContent = 'Background not found';
+      preview.appendChild(img);
+    }
 
-        // Apply: sende neue Settings an Server (minimal)
-        applyBtn.addEventListener('click', () => {
-            const newSettings = { fade: !!toggleFade.checked };
-            socket.emit('admin:update', newSettings);
-            // ui update sofort
-            statusSpan.textContent = newSettings.fade ? '' : 'OFF';
-        });
-    </script>
+    // Fade toggle
+    fadeToggle.addEventListener('change', () => {
+      const newSettings = { fade: fadeToggle.checked };
+      socket.emit('admin:updateSettings', newSettings, (res) => {
+        status.textContent = 'Fade ' + (fadeToggle.checked ? 'enabled' : 'disabled');
+      });
+    });
+
+    // Save button
+    document.getElementById('saveBtn').addEventListener('click', () => {
+      const themeName = currentConfig.activeTheme;
+      const themeObj = {
+        image: themeName + '.png',
+        zones: [
+          { id:'top', yStartPct: Number(document.getElementById('z0start').value), yEndPct: Number(document.getElementById('z0end').value) },
+          { id:'middle', yStartPct: Number(document.getElementById('z1start').value), yEndPct: Number(document.getElementById('z1end').value) },
+          { id:'bottom', yStartPct: Number(document.getElementById('z2start').value), yEndPct: Number(document.getElementById('z2end').value) }
+        ]
+      };
+      // basic validation
+      if (themeObj.zones[0].yStartPct !== 0 || themeObj.zones[2].yEndPct !== 100 || themeObj.zones[0].yEndPct !== themeObj.zones[1].yStartPct || themeObj.zones[1].yEndPct !== themeObj.zones[2].yStartPct) {
+        status.textContent = 'Invalid zone percentages (must be sequential and cover 0..100)';
+        return;
+      }
+      // Save with ALL existing themes, only update the current one
+      const cfg = { 
+        activeTheme: currentConfig.activeTheme, 
+        themes: { ...currentConfig.themes } // Copy all themes
+      };
+      cfg.themes[themeName] = themeObj; // Update only the current theme
+      socket.emit('saveConfig', cfg, (res) => {
+        if (res && res.ok) {
+          status.textContent = 'Saved config.';
+          previewBg(themeObj.image);
+        } else {
+          status.textContent = 'Save failed';
+        }
+      });
+    });
+
+    // Theme dropdown
+    themeDropdown.addEventListener('change', () => {
+      const selectedTheme = themeDropdown.value;
+      if (!selectedTheme) return;
+      
+      const cfg = { activeTheme: selectedTheme, themes: currentConfig.themes };
+      socket.emit('saveConfig', cfg, (res) => {
+        if (res && res.ok) {
+          status.textContent = `Switched to theme: ${selectedTheme}`;
+          // Load the selected theme's data
+          document.getElementById('currentThemeName').textContent = selectedTheme;
+          if (currentConfig.themes[selectedTheme]) {
+            const t = currentConfig.themes[selectedTheme];
+            document.getElementById('z0start').value = t.zones[0].yStartPct;
+            document.getElementById('z0end').value = t.zones[0].yEndPct;
+            document.getElementById('z1start').value = t.zones[1].yStartPct;
+            document.getElementById('z1end').value = t.zones[1].yEndPct;
+            document.getElementById('z2start').value = t.zones[2].yStartPct;
+            document.getElementById('z2end').value = t.zones[2].yEndPct;
+          }
+          previewBg(currentConfig.themes[selectedTheme].image);
+        } else {
+          status.textContent = 'Switch failed';
+        }
+      });
+    });
+
+    // initial preview
+    previewBg(document.getElementById('bgFile').value);
+  </script>
 </body>
-
 </html>

@@ -1,0 +1,45 @@
+{
+  "activeTheme": "jungle",
+  "themes": {
+    "ocean": {
+      "image": "ocean.png",
+      "zones": [
+        {
+          "id": "top",
+          "yStartPct": 0,
+          "yEndPct": 30
+        },
+        {
+          "id": "middle",
+          "yStartPct": 30,
+          "yEndPct": 70
+        },
+        {
+          "id": "bottom",
+          "yStartPct": 70,
+          "yEndPct": 100
+        }
+      ]
+    },
+    "jungle": {
+      "image": "jungle.png",
+      "zones": [
+        {
+          "id": "top",
+          "yStartPct": 0,
+          "yEndPct": 60
+        },
+        {
+          "id": "middle",
+          "yStartPct": 60,
+          "yEndPct": 70
+        },
+        {
+          "id": "bottom",
+          "yStartPct": 70,
+          "yEndPct": 100
+        }
+      ]
+    }
+  }
+}
