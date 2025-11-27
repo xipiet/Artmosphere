@@ -33,36 +33,59 @@
     #colors {
       display: flex;
       gap: 6px;
-    }
-
-    .color-btn {
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      border: 2px solid #ccc;
-      cursor: pointer;
-    }
-
-    #sizes {
-      display: flex;
-      gap: 4px;
       align-items: center;
     }
 
-    .size-btn {
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      border: 2px solid #ccc;
-      background: #fff;
+    /* ROUND COLOR PICKER SMALLER */
+    #colorPicker {
+      width: 24px;
+      height: 24px;
+      border: none;
+      padding: 0;
       cursor: pointer;
+      border-radius: 50%;
+      overflow: hidden;
+      background: none;
     }
 
+    #colorPicker::-webkit-color-swatch {
+      border-radius: 50%;
+      border: none;
+    }
+    #colorPicker::-webkit-color-swatch-wrapper {
+      padding: 0;
+      border-radius: 50%;
+    }
+
+    /* STROKE SLIDER */
     #stroke-slider {
       display: flex;
       align-items: center;
       gap: 6px;
       min-width: 120px;
+    }
+
+    /* DYNAMIC THUMB SIZE & COLOR */
+    #sizeSlider {
+      --thumbSize: 16px;
+      --thumbColor: #000000;
+    }
+
+    #sizeSlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: var(--thumbSize);
+      height: var(--thumbSize);
+      background: var(--thumbColor);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    #sizeSlider::-moz-range-thumb {
+      width: var(--thumbSize);
+      height: var(--thumbSize);
+      background: var(--thumbColor);
+      border-radius: 50%;
+      cursor: pointer;
     }
 
     #erase {
@@ -105,21 +128,26 @@
   <!-- toolbar -->
   <div id="toolbar">
 
-    <!-- colors -->
+    <!-- color picker -->
     <div id="colors">
-      <div class="color-btn" data-color="#000000" style="background:#000000"></div>
-      <div class="color-btn" data-color="#ff0000" style="background:#ff0000"></div>
-      <div class="color-btn" data-color="#00aaff" style="background:#00aaff"></div>
-      <div class="color-btn" data-color="#00cc44" style="background:#00cc44"></div>
-      <div class="color-btn" data-color="#ff9900" style="background:#ff9900"></div>
-      <div class="color-btn" data-color="#ffffff" style="background:#ffffff; border:2px solid #888"></div>
+      <label>Farbe:</label>
+      <input type="color" id="colorPicker" value="#000000">
     </div>
 
     <!-- stroke slider -->
     <div id="stroke-slider">
-      <label for="sizeSlider">Stift:</label>
-      <input type="range" id="sizeSlider" min="1" max="30" value="4">
+      <label for="sizeSlider">Stiftgröße:</label>
+      <input type="range" id="sizeSlider" min="1" max="40" value="4">
     </div>
+
+    <!-- shapes -->
+    <select id="shapeTool">
+      <option value="free">Freihand</option>
+      <option value="line">Linie</option>
+      <option value="rect">Rechteck</option>
+      <option value="circle">Kreis</option>
+      <option value="triangle">Dreieck</option>
+    </select>
 
     <!-- eraser -->
     <button id="erase">Eraser</button>
@@ -127,13 +155,13 @@
   </div>
 
   <!-- canvas -->
-  <canvas id="drawArea" width="800" height="500"></canvas>
+  <canvas id="drawArea" width="900" height="600"></canvas>
 
   <!-- bottom buttons -->
   <div id="controls">
     <button id="clear">Clear</button>
     <button id="send">Send</button>
-    <button id="screenshot">Screenshot Draw</button>
+    <button id="screenshot">Screenshot</button>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -147,9 +175,36 @@
     let currentSize = 4;
     let eraseMode = false;
 
+    let shapeMode = "free";
+    let startX = 0, startY = 0;
+    let previewImg = null;
+
+    const colorPicker = document.getElementById("colorPicker");
     const sizeSlider = document.getElementById("sizeSlider");
+
+    /* dynamic thumb size & color */
+    function updateSliderThumb() {
+      sizeSlider.style.setProperty("--thumbSize", currentSize + "px");
+      sizeSlider.style.setProperty("--thumbColor", currentColor);
+    }
+
     sizeSlider.addEventListener("input", () => {
       currentSize = parseInt(sizeSlider.value);
+      updateSliderThumb();
+    });
+
+    colorPicker.addEventListener("input", () => {
+      eraseMode = false;
+      currentColor = colorPicker.value;
+      updateSliderThumb();
+    });
+
+    document.getElementById("shapeTool").addEventListener("change", (e) => {
+      shapeMode = e.target.value;
+    });
+
+    document.getElementById("erase").addEventListener("click", () => {
+      eraseMode = true;
     });
 
     function getPos(e) {
@@ -160,25 +215,71 @@
     }
 
     function startDraw(e) {
-      drawing = true;
-      ctx.beginPath();
-      const { x, y } = getPos(e);
-      ctx.moveTo(x, y);
+      const pos = getPos(e);
+      startX = pos.x;
+      startY = pos.y;
+
+      if (shapeMode === "free") {
+        drawing = true;
+        ctx.beginPath();
+        ctx.moveTo(startX, startY);
+      } else {
+        previewImg = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      }
     }
 
     function draw(e) {
-      if (!drawing) return;
-      const { x, y } = getPos(e);
+      const pos = getPos(e);
 
-      ctx.lineTo(x, y);
-      ctx.strokeStyle = eraseMode ? "#ffffff" : currentColor;
+      if (shapeMode === "free") {
+        if (!drawing) return;
+        ctx.lineTo(pos.x, pos.y);
+        ctx.strokeStyle = eraseMode ? "#ffffff" : currentColor;
+        ctx.lineWidth = currentSize;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.stroke();
+        return;
+      }
+
+      ctx.putImageData(previewImg, 0, 0);
+      ctx.strokeStyle = currentColor;
       ctx.lineWidth = currentSize;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.stroke();
+
+      switch (shapeMode) {
+        case "line":
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(pos.x, pos.y);
+          ctx.stroke();
+          break;
+
+        case "rect":
+          ctx.strokeRect(startX, startY, pos.x - startX, pos.y - startY);
+          break;
+
+        case "circle":
+          const r = Math.hypot(pos.x - startX, pos.y - startY);
+          ctx.beginPath();
+          ctx.arc(startX, startY, r, 0, Math.PI * 2);
+          ctx.stroke();
+          break;
+
+        case "triangle":
+          ctx.beginPath();
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(pos.x, pos.y);
+          ctx.lineTo(startX - (pos.x - startX), pos.y);
+          ctx.closePath();
+          ctx.stroke();
+          break;
+      }
     }
 
-    function endDraw() { drawing = false; }
+    function endDraw() {
+      drawing = false;
+      previewImg = null;
+    }
 
     canvas.addEventListener("mousedown", startDraw);
     canvas.addEventListener("mousemove", draw);
@@ -187,17 +288,6 @@
     canvas.addEventListener("touchstart", startDraw, { passive:false });
     canvas.addEventListener("touchmove", draw, { passive:false });
     canvas.addEventListener("touchend", endDraw);
-
-    document.querySelectorAll(".color-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        eraseMode = false;
-        currentColor = btn.dataset.color;
-      });
-    });
-
-    document.getElementById("erase").addEventListener("click", () => {
-      eraseMode = true;
-    });
 
     document.getElementById("clear").addEventListener("click", () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -215,7 +305,10 @@
       link.download = `drawing_${Date.now()}.png`;
       link.click();
     });
+
+    updateSliderThumb(); // initial
   </script>
 
 </body>
 </html>
+
