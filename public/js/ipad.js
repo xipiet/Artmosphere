@@ -1,13 +1,13 @@
 const socket = io();
 
-// Theme view elements
+// THEME VIEW ELEMENTS
 const themeView = document.getElementById('themeView');
 const drawView = document.getElementById('drawView');
 const bgCanvas = document.getElementById('bgCanvas');
 const bgCtx = bgCanvas.getContext('2d');
 const zoneEls = [document.getElementById('zone0'), document.getElementById('zone1'), document.getElementById('zone2')];
 
-// Drawing view elements
+// DRAWING VIEW ELEMENTS
 const canvas = document.getElementById('drawArea');
 const ctx = canvas.getContext('2d');
 

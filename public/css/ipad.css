@@ -47,14 +47,20 @@ canvas#bgCanvas {
 
 .zone-overlay.zone-0 { 
     animation: breatheZone0 5.4s infinite ease-in-out; 
+    top:0; 
+    height:33%;
 }
 
 .zone-overlay.zone-1 { 
     animation: breatheZone1 5.4s infinite ease-in-out; 
+    top:33%; 
+    height:34%;
 }
 
 .zone-overlay.zone-2 { 
     animation: breatheZone2 5.4s infinite ease-in-out; 
+    top:67%; 
+    height:33%;
 }
 
 @keyframes breatheZone0 {
@@ -80,20 +86,25 @@ canvas#bgCanvas {
 #drawView { 
     display: none; 
     width: 100%; 
+    height: 100%;
     flex-direction: column; 
     align-items: center; 
+    justify-content: center;
     gap: 8px; 
 }
 
 #toolbar {
-    display: flex;
+    position: absolute;
     gap: 12px;
     padding: 10px;
-    background: #fff;
+    background: #ebebeb;
     box-shadow: 0 0 8px rgba(0,0,0,0.15);
-    margin-top: 15px;
     border-radius: 12px;
     align-items: center;
+    display: flex;
+    bottom: 15px;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 #colors {
@@ -126,11 +137,11 @@ canvas#bgCanvas {
 }
 
 #drawArea {
-    margin-top: 15px;
     background: #fff;
     box-shadow: 0 0 10px rgba(0,0,0,0.2);
     touch-action: none;
     border-radius: 8px;
+    display: block;
 }
 
 #controls {
@@ -138,6 +149,8 @@ canvas#bgCanvas {
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
+    position: absolute;
+    right: 15px;
 }
 
 #controls button {
@@ -146,3 +159,30 @@ canvas#bgCanvas {
     cursor: pointer;
     border-radius: 6px;
 }
+
+#canvas-wrapper {
+    position: relative;
+    display: flex;
+}
+
+#screenshot {
+    position: absolute;
+    padding: 8px 14px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 6px;
+    bottom: 15px;
+    right: 15px;
+}
+
+#stencil {
+    position: absolute;
+    padding: 8px 14px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 6px;
+    top: 15px;
+    left: 15px;
+}
+
+/* !!!!!!!!!!!!!!! TODO: EINHEITLICHE STYLING KLASSEN !!!!!!!!!!!!!!!! */

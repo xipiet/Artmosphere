@@ -9,43 +9,53 @@
   </head>
 
   <body>
-    <!-- THEME VIEW (Zone Selection) -->
+    <!-- [start] ----- THEME VIEW (Zone Selection) ----- [start] -->
     <div id="themeView">
       <div id="viewport">
         <canvas id="bgCanvas"></canvas>
-        <div id="zone0" class="zone-overlay zone-0" style="top:0; height:33%;"></div>
-        <div id="zone1" class="zone-overlay zone-1" style="top:33%; height:34%;"></div>
-        <div id="zone2" class="zone-overlay zone-2" style="top:67%; height:33%;"></div>
+        <div id="zone0" class="zone-overlay zone-0"></div>
+        <div id="zone1" class="zone-overlay zone-1"></div>
+        <div id="zone2" class="zone-overlay zone-2"></div>
       </div>
     </div>
+    <!-- [end] ----- THEME VIEW (Zone Selection) ----- [end] -->
 
-    <!-- DRAWING VIEW -->
+    <!-- [start] ----- DRAWING VIEW ----- [start] -->
     <div id="drawView">
-      <div id="toolbar">
-        <div id="colors">
-          <div class="color-btn" data-color="#000000" style="background:#000000"></div>
-          <div class="color-btn" data-color="#ff0000" style="background:#ff0000"></div>
-          <div class="color-btn" data-color="#00aaff" style="background:#00aaff"></div>
-          <div class="color-btn" data-color="#00cc44" style="background:#00cc44"></div>
-          <div class="color-btn" data-color="#ff9900" style="background:#ff9900"></div>
-          <div class="color-btn" data-color="#ffffff" style="background:#ffffff; border:2px solid #888"></div>
-        </div>
-        <div id="stroke-slider">
-          <label for="sizeSlider">Stift:</label>
-          <input type="range" id="sizeSlider" min="1" max="30" value="4">
-        </div>
-        <button id="erase">Eraser</button>
-      </div>
+      <div id="canvas-wrapper">
+        <button id="stencil">Stencils</button>
 
-      <canvas id="drawArea" width="800" height="500"></canvas>
+        <div id="controls">
+          <button id="back">Back to Zones</button>
+          <button id="send">Send</button>
+        </div>
 
-      <div id="controls">
-        <button id="back">Back to Zones</button>
-        <button id="clear">Clear</button>
-        <button id="send">Send</button>
-        <button id="screenshot">Screenshot Draw</button>
-      </div>
+        <canvas id="drawArea" width="1194px" height="834px"></canvas>
+
+        <div id="toolbar">
+          <div id="colors">
+            <div class="color-btn" data-color="#000000" style="background:#000000"></div>
+            <div class="color-btn" data-color="#ff0000" style="background:#ff0000"></div>
+            <div class="color-btn" data-color="#00aaff" style="background:#00aaff"></div>
+            <div class="color-btn" data-color="#00cc44" style="background:#00cc44"></div>
+            <div class="color-btn" data-color="#ff9900" style="background:#ff9900"></div>
+            <div class="color-btn" data-color="#ffffff" style="background:#ffffff; border:2px solid #888"></div>
+          </div>
+
+          <!-- TODO: an Farbpalette Icon dran hängen -->
+          <div id="stroke-slider">
+            <label for="sizeSlider">Stift:</label>
+            <input type="range" id="sizeSlider" min="1" max="30" value="4">
+          </div>
+
+          <button id="erase">Eraser</button>                  <!-- TODO: Radiergummi Icon -->
+          <button id="clear">Clear</button>                   <!-- TODO: Mülltonnen Icon -->
+        </div>
+
+        <button id="screenshot">Screenshot Draw</button>    <!-- TODO: unten rechts ins Eck -->
+      </div>        
     </div>
+    <!-- [end] ----- DRAWING VIEW ----- [end] -->
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/ipad.js" defer></script>
