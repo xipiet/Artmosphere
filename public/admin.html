@@ -1,91 +1,54 @@
 <!doctype html>
-<html>
-
-<head>
+<html lang="de">
+  <head>
     <meta charset="utf-8" />
     <title>Admin</title>
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <style>
-        html,
-        body {
-            height: 100%;
-            margin: 0;
-            padding: 20px;
-            font-family: Arial, sans-serif;
-            background: #f7f7f7;
-            color: #222;
-        }
+    <link rel="icon" type="image/png" href="/favicon.png"/>
+    <link rel="stylesheet" href="/css/admin.css"/>
+  </head>
 
-        h1 {
-            margin: 0 0 12px 0;
-            font-size: 20px;
-        }
+  <body>
+    <h2>Admin — Theme Editor</h2>
 
-        label {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 12px;
-        }
-
-        button {
-            margin-left: 8px;
-            padding: 6px 10px;
-            cursor: pointer;
-        }
-
-        #status {
-            margin-left: 10px;
-            font-weight: bold;
-        }
-    </style>
-</head>
-
-<body>
-    <h1>Admin</h1>
     <div>
+      <h3 id="currentThemeName">Ocean</h3>
+
+      <div style="margin-top:10px">
         <label>
-            <input type="checkbox" id="toggleFade" />
-            Fade over time
-            <span id="status"></span>
+          <input type="checkbox" id="fadeToggle" checked> Fade enabled (images fade out over time)
         </label>
-        <div style="margin-top:16px;">
-            <button id="apply">Apply</button>
+      </div>
+
+      <div style="margin-top:10px">
+        <strong>Zones (percent 0–100). Must be sequential and cover 0..100</strong>
+        <div>
+          <label>Zone 1 — yStart% <input id="z0start" type="number" value="0" min="0" max="100"> yEnd% <input id="z0end" type="number" value="30" min="0" max="100"></label>
         </div>
+        <div>
+          <label>Zone 2 — yStart% <input id="z1start" type="number" value="30" min="0" max="100"> yEnd% <input id="z1end" type="number" value="70" min="0" max="100"></label>
+        </div>
+        <div>
+          <label>Zone 3 — yStart% <input id="z2start" type="number" value="70" min="0" max="100"> yEnd% <input id="z2end" type="number" value="100" min="0" max="100"></label>
+        </div>
+      </div>
+
+      <div>
+        <button id="saveBtn">Save Config</button>
+        <span id="status"></span>
+      </div>
+
+      <div style="margin-top:15px">
+        <label>Switch Theme:
+          <select id="themeDropdown">
+            <option value="">Loading themes...</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="preview" id="preview">Preview (loads image if available)</div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-
-        const toggleFade = document.getElementById('toggleFade');
-        const applyBtn = document.getElementById('apply');
-        const statusSpan = document.getElementById('status');
-
-        // Init: server schickt aktuelle Settings
-        socket.on('admin:init', (s) => {
-            if (typeof s.fade === 'boolean') {
-                toggleFade.checked = s.fade;
-                statusSpan.textContent = s.fade ? 'ON' : 'OFF';
-            }
-        });
-
-        // Wenn Admin-Settings von anderen Admins geändert werden
-        socket.on('admin:update', (s) => {
-            if (typeof s.fade === 'boolean') {
-                toggleFade.checked = s.fade;
-                statusSpan.textContent = s.fade ? 'ON' : 'OFF';
-            }
-        });
-
-        // Apply: sende neue Settings an Server (minimal)
-        applyBtn.addEventListener('click', () => {
-            const newSettings = { fade: !!toggleFade.checked };
-            socket.emit('admin:update', newSettings);
-            // ui update sofort
-            statusSpan.textContent = newSettings.fade ? '' : 'OFF';
-        });
-    </script>
-</body>
-
+    <script src="/js/admin.js" defer></script>
+  </body>
 </html>

@@ -1,221 +1,53 @@
 <!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>iPad Draw</title>
-  <link rel="icon" type="image/png" href="/favicon.png" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      background: #e6e6e6;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: flex-start;
-      font-family: sans-serif;
-      user-select: none;
-    }
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>iPad Draw</title>
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <link rel="stylesheet" href="/css/ipad.css">
+  </head>
 
-    /* TOP TOOLBAR */
-    #toolbar {
-      display: flex;
-      gap: 12px;
-      padding: 10px;
-      background: #fff;
-      box-shadow: 0 0 8px rgba(0,0,0,0.15);
-      margin-top: 15px;
-      border-radius: 12px;
-      align-items: center;
-    }
-
-    #colors {
-      display: flex;
-      gap: 6px;
-    }
-
-    .color-btn {
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      border: 2px solid #ccc;
-      cursor: pointer;
-    }
-
-    #sizes {
-      display: flex;
-      gap: 4px;
-      align-items: center;
-    }
-
-    .size-btn {
-      width: 26px;
-      height: 26px;
-      border-radius: 50%;
-      border: 2px solid #ccc;
-      background: #fff;
-      cursor: pointer;
-    }
-
-    #stroke-slider {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-width: 120px;
-    }
-
-    #erase {
-      padding: 4px 10px;
-      background: #ff5050;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    /* DRAWING AREA */
-    canvas {
-      margin-top: 15px;
-      background: #fff;
-      box-shadow: 0 0 10px rgba(0,0,0,0.2);
-      touch-action: none;
-      border-radius: 8px;
-    }
-
-    /* BOTTOM BUTTONS */
-    #controls {
-      margin-top: 15px;
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    #controls button {
-      padding: 8px 14px;
-      font-size: 16px;
-      cursor: pointer;
-      border-radius: 6px;
-    }
-  </style>
-</head>
-
-<body>
-
-  <!-- toolbar -->
-  <div id="toolbar">
-
-    <!-- colors -->
-    <div id="colors">
-      <div class="color-btn" data-color="#000000" style="background:#000000"></div>
-      <div class="color-btn" data-color="#ff0000" style="background:#ff0000"></div>
-      <div class="color-btn" data-color="#00aaff" style="background:#00aaff"></div>
-      <div class="color-btn" data-color="#00cc44" style="background:#00cc44"></div>
-      <div class="color-btn" data-color="#ff9900" style="background:#ff9900"></div>
-      <div class="color-btn" data-color="#ffffff" style="background:#ffffff; border:2px solid #888"></div>
+  <body>
+    <!-- THEME VIEW (Zone Selection) -->
+    <div id="themeView">
+      <div id="viewport">
+        <canvas id="bgCanvas"></canvas>
+        <div id="zone0" class="zone-overlay zone-0" style="top:0; height:33%;"></div>
+        <div id="zone1" class="zone-overlay zone-1" style="top:33%; height:34%;"></div>
+        <div id="zone2" class="zone-overlay zone-2" style="top:67%; height:33%;"></div>
+      </div>
     </div>
 
-    <!-- stroke slider -->
-    <div id="stroke-slider">
-      <label for="sizeSlider">Stift:</label>
-      <input type="range" id="sizeSlider" min="1" max="30" value="4">
+    <!-- DRAWING VIEW -->
+    <div id="drawView">
+      <div id="toolbar">
+        <div id="colors">
+          <div class="color-btn" data-color="#000000" style="background:#000000"></div>
+          <div class="color-btn" data-color="#ff0000" style="background:#ff0000"></div>
+          <div class="color-btn" data-color="#00aaff" style="background:#00aaff"></div>
+          <div class="color-btn" data-color="#00cc44" style="background:#00cc44"></div>
+          <div class="color-btn" data-color="#ff9900" style="background:#ff9900"></div>
+          <div class="color-btn" data-color="#ffffff" style="background:#ffffff; border:2px solid #888"></div>
+        </div>
+        <div id="stroke-slider">
+          <label for="sizeSlider">Stift:</label>
+          <input type="range" id="sizeSlider" min="1" max="30" value="4">
+        </div>
+        <button id="erase">Eraser</button>
+      </div>
+
+      <canvas id="drawArea" width="800" height="500"></canvas>
+
+      <div id="controls">
+        <button id="back">Back to Zones</button>
+        <button id="clear">Clear</button>
+        <button id="send">Send</button>
+        <button id="screenshot">Screenshot Draw</button>
+      </div>
     </div>
 
-    <!-- eraser -->
-    <button id="erase">Eraser</button>
-
-  </div>
-
-  <!-- canvas -->
-  <canvas id="drawArea" width="800" height="500"></canvas>
-
-  <!-- bottom buttons -->
-  <div id="controls">
-    <button id="clear">Clear</button>
-    <button id="send">Send</button>
-    <button id="screenshot">Screenshot Draw</button>
-  </div>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const canvas = document.getElementById('drawArea');
-    const ctx = canvas.getContext('2d');
-
-    let drawing = false;
-    let currentColor = "#000000";
-    let currentSize = 4;
-    let eraseMode = false;
-
-    const sizeSlider = document.getElementById("sizeSlider");
-    sizeSlider.addEventListener("input", () => {
-      currentSize = parseInt(sizeSlider.value);
-    });
-
-    function getPos(e) {
-      const rect = canvas.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      return { x: clientX - rect.left, y: clientY - rect.top };
-    }
-
-    function startDraw(e) {
-      drawing = true;
-      ctx.beginPath();
-      const { x, y } = getPos(e);
-      ctx.moveTo(x, y);
-    }
-
-    function draw(e) {
-      if (!drawing) return;
-      const { x, y } = getPos(e);
-
-      ctx.lineTo(x, y);
-      ctx.strokeStyle = eraseMode ? "#ffffff" : currentColor;
-      ctx.lineWidth = currentSize;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.stroke();
-    }
-
-    function endDraw() { drawing = false; }
-
-    canvas.addEventListener("mousedown", startDraw);
-    canvas.addEventListener("mousemove", draw);
-    canvas.addEventListener("mouseup", endDraw);
-
-    canvas.addEventListener("touchstart", startDraw, { passive:false });
-    canvas.addEventListener("touchmove", draw, { passive:false });
-    canvas.addEventListener("touchend", endDraw);
-
-    document.querySelectorAll(".color-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        eraseMode = false;
-        currentColor = btn.dataset.color;
-      });
-    });
-
-    document.getElementById("erase").addEventListener("click", () => {
-      eraseMode = true;
-    });
-
-    document.getElementById("clear").addEventListener("click", () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    });
-
-    document.getElementById("send").addEventListener("click", () => {
-      const dataUrl = canvas.toDataURL("image/png");
-      socket.emit("sendImage", dataUrl);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    });
-
-    document.getElementById("screenshot").addEventListener("click", () => {
-      const link = document.createElement("a");
-      link.href = canvas.toDataURL("image/png");
-      link.download = `drawing_${Date.now()}.png`;
-      link.click();
-    });
-  </script>
-
-</body>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/ipad.js" defer></script>
+  </body>
 </html>
