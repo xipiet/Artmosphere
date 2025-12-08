@@ -27,11 +27,11 @@
         {
           "id": "top",
           "yStartPct": 0,
-          "yEndPct": 60
+          "yEndPct": 30
         },
         {
           "id": "middle",
-          "yStartPct": 60,
+          "yStartPct": 30,
           "yEndPct": 70
         },
         {

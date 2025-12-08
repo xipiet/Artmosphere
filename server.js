@@ -17,6 +17,7 @@ let serverConfig = {};
 let serverSettings = {
   fade: true
 };
+let activeImages = []; // Store active paintings { id, dataUrl, zoneId, timestamp }
 
 // Load config.json
 function loadConfig() {
@@ -102,7 +103,24 @@ io.on("connection", (socket) => {
 
   // iPad sends image + zone
   socket.on("sendImage", ({ dataUrl, zoneId }) => {
-    io.emit("newImage", { dataUrl, zoneId });
+    const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const imageData = { id: imageId, dataUrl, zoneId, timestamp: Date.now() };
+    activeImages.push(imageData);
+    
+    io.emit("newImage", imageData);
+    io.emit("admin:updateGallery", activeImages);
+  });
+
+  // Admin removes an image
+  socket.on("admin:removeImage", (imageId) => {
+    activeImages = activeImages.filter(img => img.id !== imageId);
+    io.emit("admin:removeImageFromMain", imageId);
+    io.emit("admin:updateGallery", activeImages);
+  });
+
+  // Send current gallery to newly connected admin
+  socket.on("admin:requestGallery", () => {
+    socket.emit("admin:updateGallery", activeImages);
   });
 
   // Admin toggles fade
