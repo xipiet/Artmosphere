@@ -113,7 +113,10 @@ io.on("connection", (socket) => {
 
   // Admin removes an image
   socket.on("admin:removeImage", (imageId) => {
-    activeImages = activeImages.filter(img => img.id !== imageId);
+    const index = activeImages.findIndex(img => img.id === imageId);
+    if (index !== -1) {
+      activeImages.splice(index, 1);
+    }
     io.emit("admin:removeImageFromMain", imageId);
     io.emit("admin:updateGallery", activeImages);
   });

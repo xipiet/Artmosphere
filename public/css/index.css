@@ -1,0 +1,19 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fafafa;
+}
+
+.links a {
+    display: inline-block;
+    margin: 8px;
+    padding: 12px 18px;
+    background: #222;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 6px;
+}
