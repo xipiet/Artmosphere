@@ -14,7 +14,8 @@ window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
 class FloatingImage {
-constructor(img, zone) {
+constructor(id, img, zone) {
+    this.id = id;
     this.img = img;
     
     // zufällige Position NUR innerhalb der Zone
@@ -108,14 +109,25 @@ serverSettings = settings;
 statusEl.textContent = `theme: ${themeConfig ? themeConfig.id : '?'} | fade: ${settings.fade ? 'ON' : 'OFF'}`;
 });
 
-// Bild kommt an, mit Zone-ID
-socket.on("newImage", ({ dataUrl, zoneId }) => {
+// Bild kommt an, mit Zone-ID und eindeutiger ID
+socket.on("newImage", ({ id, dataUrl, zoneId }) => {
 const img = new Image();
 img.onload = () => {
     const zone = themeConfig.zones.find(z => z.id === zoneId);
-    activeImages.push(new FloatingImage(img, zone));
+    activeImages.push(new FloatingImage(id, img, zone));
 };
 img.src = dataUrl;
+});
+
+// Admin removed an image - filter it out from activeImages
+socket.on("admin:removeImageFromMain", (imageId) => {
+const index = activeImages.findIndex(img => img.id === imageId);
+if (index !== -1) {
+    activeImages.splice(index, 1);
+    console.log("Image removed. Remaining:", activeImages.length);
+} else {
+    console.log("Image not found:", imageId);
+}
 });
 
 // Screenshot

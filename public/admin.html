@@ -8,44 +8,68 @@
   </head>
 
   <body>
-    <h2>Admin — Theme Editor</h2>
-
-    <div>
-      <h3 id="currentThemeName">Ocean</h3>
-
-      <div style="margin-top:10px">
-        <label>
-          <input type="checkbox" id="fadeToggle" checked> Fade enabled (images fade out over time)
-        </label>
-      </div>
-
-      <div style="margin-top:10px">
-        <strong>Zones (percent 0–100). Must be sequential and cover 0..100</strong>
-        <div>
-          <label>Zone 1 — yStart% <input id="z0start" type="number" value="0" min="0" max="100"> yEnd% <input id="z0end" type="number" value="30" min="0" max="100"></label>
-        </div>
-        <div>
-          <label>Zone 2 — yStart% <input id="z1start" type="number" value="30" min="0" max="100"> yEnd% <input id="z1end" type="number" value="70" min="0" max="100"></label>
-        </div>
-        <div>
-          <label>Zone 3 — yStart% <input id="z2start" type="number" value="70" min="0" max="100"> yEnd% <input id="z2end" type="number" value="100" min="0" max="100"></label>
+    <div class="container">
+      <!-- HEADER WITH SETTINGS -->
+      <div class="header">
+        <h1>Admin — Artmosphere Control</h1>
+        <div class="settings-group">
+          <div class="setting-box">
+            <label>Current Theme</label>
+            <select id="themeDropdown">
+              <option value="">Loading themes...</option>
+            </select>
+          </div>
+          <div class="setting-box">
+            <label>
+              <input type="checkbox" id="fadeToggle" checked> Fade enabled
+            </label>
+          </div>
+          <div id="status" style="display:none;"></div>
         </div>
       </div>
 
-      <div>
-        <button id="saveBtn">Save Config</button>
-        <span id="status"></span>
+      <!-- ZONE EDITOR -->
+      <div class="zones-panel">
+        <h3>🎨 Zone Editor — <span id="currentThemeName">Theme</span></h3>
+        <div style="display:flex; gap:30px;">
+          <div>
+            <strong>Zones (percent 0–100). Must be sequential and cover 0..100</strong>
+            <div class="zone-row">
+              <label>Zone 1 — </label>
+              <span>Start%</span>
+              <input id="z0start" type="number" value="0" min="0" max="100">
+              <span>End%</span>
+              <input id="z0end" type="number" value="30" min="0" max="100">
+            </div>
+            <div class="zone-row">
+              <label>Zone 2 — </label>
+              <span>Start%</span>
+              <input id="z1start" type="number" value="30" min="0" max="100">
+              <span>End%</span>
+              <input id="z1end" type="number" value="70" min="0" max="100">
+            </div>
+            <div class="zone-row">
+              <label>Zone 3 — </label>
+              <span>Start%</span>
+              <input id="z2start" type="number" value="70" min="0" max="100">
+              <span>End%</span>
+              <input id="z2end" type="number" value="100" min="0" max="100">
+            </div>
+            <button id="saveBtn">💾 Save Zone Config</button>
+          </div>
+          <div class="preview-box" id="preview">
+            Preview image
+          </div>
+        </div>
       </div>
 
-      <div style="margin-top:15px">
-        <label>Switch Theme:
-          <select id="themeDropdown">
-            <option value="">Loading themes...</option>
-          </select>
-        </label>
+      <!-- GALLERY ADMIN PANEL -->
+      <div class="gallery-panel">
+        <h3>🖼️ Active Paintings Gallery (<span id="galleryCount">0</span> items)</h3>
+        <div class="gallery-grid" id="gallery">
+          <div class="gallery-empty">No paintings yet. Draw on the iPad to add!</div>
+        </div>
       </div>
-
-      <div class="preview" id="preview">Preview (loads image if available)</div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
