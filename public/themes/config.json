@@ -23,6 +23,7 @@
     },
     "jungle": {
       "image": "jungle.png",
+      "movement": "hopping",
       "zones": [
         {
           "id": "top",

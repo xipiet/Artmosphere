@@ -2,6 +2,16 @@ const socket = io();
 const preview = document.getElementById('preview');
 const status = document.getElementById('status');
 const fadeToggle = document.getElementById('fadeToggle');
+
+// NEW: Speed controls
+const hopSpeedInput = document.getElementById('hopSpeedInput');
+const floatSpeedInput = document.getElementById('floatSpeedInput');
+
+// NEW: Movement selector, normalize toggle, max images
+const movementSelect = document.getElementById('movementSelect');  
+const normalizeToggle = document.getElementById('normalizeToggle'); 
+const maxImagesInput = document.getElementById('maxImagesInput');   
+
 const themeDropdown = document.getElementById('themeDropdown');
 const gallery = document.getElementById('gallery');
 const galleryCount = document.getElementById('galleryCount');
@@ -10,7 +20,6 @@ let currentConfig = null;
 let currentSettings = null;
 let activeImages = [];
 
-// Utility: Show status message
 function showStatus(message, isError = false) {
     status.textContent = message;
     status.className = isError ? 'error' : 'success';
@@ -22,27 +31,32 @@ function showStatus(message, isError = false) {
 
 socket.on('app:init', (d) => {
     currentConfig = d.config || d;
-    currentSettings = d.settings || { fade: true };
-    
+    currentSettings = d.settings || { fade: true, movement: "floating", maxImages: 30, normalizeSize: true, hopSpeed: 0.05, floatSpeed: 1 };
+
     document.getElementById('currentThemeName').textContent = currentConfig.activeTheme || 'ocean';
+
     fadeToggle.checked = currentSettings.fade !== false;
-    
-    // Populate theme dropdown
+    movementSelect.value = currentSettings.movement || "floating";
+    normalizeToggle.checked = currentSettings.normalizeSize !== false;
+    maxImagesInput.value = currentSettings.maxImages || 30;
+
+    // -------------------- CHANGE: initialize speed inputs --------------------
+    hopSpeedInput.value = currentSettings.hopSpeed || 0.05;
+    floatSpeedInput.value = currentSettings.floatSpeed || 1;
+
     updateThemeDropdown();
-    
-    // Load current theme data
-    if (currentConfig.themes && currentConfig.themes[currentConfig.activeTheme]) {
     const t = currentConfig.themes[currentConfig.activeTheme];
-    document.getElementById('z0start').value = t.zones[0].yStartPct;
-    document.getElementById('z0end').value = t.zones[0].yEndPct;
-    document.getElementById('z1start').value = t.zones[1].yStartPct;
-    document.getElementById('z1end').value = t.zones[1].yEndPct;
-    document.getElementById('z2start').value = t.zones[2].yStartPct;
-    document.getElementById('z2end').value = t.zones[2].yEndPct;
+    if (t) {
+        document.getElementById('z0start').value = t.zones[0].yStartPct;
+        document.getElementById('z0end').value = t.zones[0].yEndPct;
+        document.getElementById('z1start').value = t.zones[1].yStartPct;
+        document.getElementById('z1end').value = t.zones[1].yEndPct;
+        document.getElementById('z2start').value = t.zones[2].yStartPct;
+        document.getElementById('z2end').value = t.zones[2].yEndPct;
+
+        if (t.movement) movementSelect.value = t.movement;
     }
-    previewBg(currentConfig.themes[currentConfig.activeTheme].image);
-    
-    // Request current gallery
+    previewBg(t.image);
     socket.emit('admin:requestGallery');
 });
 
@@ -50,16 +64,24 @@ socket.on('config:changed', (conf) => {
     currentConfig = conf;
     document.getElementById('currentThemeName').textContent = conf.activeTheme;
     updateThemeDropdown();
-    previewBg(currentConfig.themes[currentConfig.activeTheme].image);
+    const t = currentConfig.themes[currentConfig.activeTheme];
+    previewBg(t.image);
+    if (t.movement) movementSelect.value = t.movement;
     showStatus('Theme config updated');
 });
 
 socket.on('admin:updateSettings', (settings) => {
     currentSettings = settings;
     fadeToggle.checked = settings.fade !== false;
+    movementSelect.value = settings.movement || "floating";
+    normalizeToggle.checked = settings.normalizeSize !== false;
+    maxImagesInput.value = settings.maxImages || 30;
+
+    // -------------------- CHANGE: update speed inputs --------------------
+    hopSpeedInput.value = settings.hopSpeed || 0.05;
+    floatSpeedInput.value = settings.floatSpeed || 1;
 });
 
-// Gallery updated
 socket.on('admin:updateGallery', (images) => {
     activeImages = images || [];
     renderGallery();
@@ -67,37 +89,33 @@ socket.on('admin:updateGallery', (images) => {
 
 function updateThemeDropdown() {
     themeDropdown.innerHTML = '';
-    if (currentConfig && currentConfig.themes) {
+    if (!currentConfig || !currentConfig.themes) return;
     Object.keys(currentConfig.themes).forEach(themeName => {
         const option = document.createElement('option');
         option.value = themeName;
         option.textContent = themeName;
-        if (themeName === currentConfig.activeTheme) {
-        option.selected = true;
-        }
+        if (themeName === currentConfig.activeTheme) option.selected = true;
         themeDropdown.appendChild(option);
     });
-    }
 }
 
 function previewBg(fn) {
     preview.innerHTML = '';
     const img = document.createElement('img');
     img.src = '/theme-image/' + encodeURIComponent(fn);
-    img.onerror = () => preview.textContent = 'Image not found';
+    img.onerror = () => (preview.textContent = 'Image not found');
     preview.appendChild(img);
 }
 
-// Render gallery
 function renderGallery() {
     galleryCount.textContent = activeImages.length;
-    
     if (activeImages.length === 0) {
         gallery.innerHTML = '<div class="gallery-empty">No paintings yet. Draw on the iPad to add!</div>';
         return;
     }
-
-    gallery.innerHTML = activeImages.map(img => `
+    gallery.innerHTML = activeImages
+        .map(
+            (img) => `
         <div class="gallery-item">
           <img src="${img.dataUrl}" alt="Painting">
           <div class="gallery-item-info">
@@ -109,65 +127,69 @@ function renderGallery() {
     `).join('');
 }
 
-// Delete image
-window.deleteImage = function(imageId) {
+window.deleteImage = function (imageId) {
     if (confirm('Delete this painting?')) {
         socket.emit('admin:removeImage', imageId);
     }
 };
 
-// Fade toggle
-fadeToggle.addEventListener('change', () => {
-    const newSettings = { fade: fadeToggle.checked };
-    socket.emit('admin:updateSettings', newSettings);
-});
+fadeToggle.addEventListener('change', updateSettings);
+movementSelect.addEventListener('change', updateSettings);
+normalizeToggle.addEventListener('change', updateSettings);
+maxImagesInput.addEventListener('input', updateSettings);
 
-// Save button
+// -------------------- CHANGE: listen to speed inputs --------------------
+hopSpeedInput.addEventListener('input', updateSettings);
+floatSpeedInput.addEventListener('input', updateSettings);
+
+function updateSettings() {
+    const newSettings = {
+        fade: fadeToggle.checked,
+        movement: movementSelect.value,
+        normalizeSize: normalizeToggle.checked,
+        maxImages: Number(maxImagesInput.value) || 30,
+        hopSpeed: Number(hopSpeedInput.value) || 0.05,
+        floatSpeed: Number(floatSpeedInput.value) || 1
+    };
+    socket.emit("admin:updateSettings", newSettings);
+}
+
 document.getElementById('saveBtn').addEventListener('click', () => {
     const themeName = currentConfig.activeTheme;
     const themeObj = {
-    image: themeName + '.png',
-    zones: [
-        { id:'top', yStartPct: Number(document.getElementById('z0start').value), yEndPct: Number(document.getElementById('z0end').value) },
-        { id:'middle', yStartPct: Number(document.getElementById('z1start').value), yEndPct: Number(document.getElementById('z1end').value) },
-        { id:'bottom', yStartPct: Number(document.getElementById('z2start').value), yEndPct: Number(document.getElementById('z2end').value) }
-    ]
+        image: themeName + '.png',
+        movement: movementSelect.value,
+        zones: [
+            { id: 'top', yStartPct: Number(document.getElementById('z0start').value), yEndPct: Number(document.getElementById('z0end').value) },
+            { id: 'middle', yStartPct: Number(document.getElementById('z1start').value), yEndPct: Number(document.getElementById('z1end').value) },
+            { id: 'bottom', yStartPct: Number(document.getElementById('z2start').value), yEndPct: Number(document.getElementById('z2end').value) }
+        ]
     };
-    
-    // Validation
-    if (themeObj.zones[0].yStartPct !== 0 || themeObj.zones[2].yEndPct !== 100 || 
-        themeObj.zones[0].yEndPct !== themeObj.zones[1].yStartPct || 
-        themeObj.zones[1].yEndPct !== themeObj.zones[2].yStartPct) {
+
+    if (
+        themeObj.zones[0].yStartPct !== 0 ||
+        themeObj.zones[2].yEndPct !== 100 ||
+        themeObj.zones[0].yEndPct !== themeObj.zones[1].yStartPct ||
+        themeObj.zones[1].yEndPct !== themeObj.zones[2].yStartPct
+    ) {
         showStatus('Invalid zone percentages (must be sequential and cover 0..100)', true);
         return;
     }
-    
-    const cfg = { 
-    activeTheme: currentConfig.activeTheme, 
-    themes: { ...currentConfig.themes }
-    };
+
+    const cfg = { activeTheme: currentConfig.activeTheme, themes: { ...currentConfig.themes } };
     cfg.themes[themeName] = themeObj;
-    
     socket.emit('saveConfig', cfg, (res) => {
-    if (res && res.ok) {
-        showStatus('✅ Zone config saved!');
-    } else {
-        showStatus('Save failed', true);
-    }
+        if (res && res.ok) showStatus('✅ Zone & movement config saved!');
+        else showStatus('Save failed', true);
     });
 });
 
-// Theme dropdown
 themeDropdown.addEventListener('change', () => {
     const selectedTheme = themeDropdown.value;
     if (!selectedTheme) return;
-    
     const cfg = { activeTheme: selectedTheme, themes: currentConfig.themes };
     socket.emit('saveConfig', cfg, (res) => {
-    if (res && res.ok) {
-        showStatus(`Switched to theme: ${selectedTheme}`);
-    } else {
-        showStatus('Theme switch failed', true);
-    }
+        if (res && res.ok) showStatus(`Switched to theme: ${selectedTheme}`);
+        else showStatus('Theme switch failed', true);
     });
 });
