@@ -1,13 +1,12 @@
 const socket = io();
 
-// Theme view elements
+// Theme and drawing elements
 const themeView = document.getElementById('themeView');
 const drawView = document.getElementById('drawView');
 const bgCanvas = document.getElementById('bgCanvas');
 const bgCtx = bgCanvas.getContext('2d');
 const zoneEls = [document.getElementById('zone0'), document.getElementById('zone1'), document.getElementById('zone2')];
 
-// Drawing view elements
 const canvas = document.getElementById('drawArea');
 const ctx = canvas.getContext('2d');
 
@@ -20,7 +19,7 @@ let currentSize = 4;
 let eraseMode = false;
 let selectedZone = null;
 
-// THEME DISPLAY
+// -------------------- Theme & Background --------------------
 let bgImg = new Image();
 function drawBgImage() {
     if (!bgImg || !bgImg.complete) return;
@@ -59,16 +58,12 @@ function applyZoneLayout() {
     }
 }
 
-// SOCKET EVENTS
+// -------------------- Socket Events --------------------
 socket.on('app:init', (d) => {
     config = d.config || d;
     activeThemeName = config.activeTheme;
     theme = config.themes[activeThemeName] || null;
-    if (theme) {
-        loadBgAndApply();
-    } else {
-        console.warn("No theme found for", activeThemeName);
-    }
+    if (theme) loadBgAndApply();
 });
 
 socket.on('config:changed', (newConfig) => {
@@ -84,11 +79,10 @@ function loadBgAndApply() {
     bgImg = new Image();
     bgImg.src = '/theme-image/' + encodeURIComponent(imageRef);
     bgImg.onload = () => { resizeBg(); drawBgImage(); };
-    bgImg.onerror = () => { console.error("Failed to load image:", imageRef); };
     applyZoneLayout();
 }
 
-// ZONE CLICK HANDLERS
+// -------------------- Drawing Setup --------------------
 for (let i=0;i<3;i++){
     zoneEls[i].addEventListener('click', () => {
         if (!theme || !theme.zones[i]) return;
@@ -106,12 +100,7 @@ function enterDrawingMode() {
     eraseMode = false;
 }
 
-// DRAWING HANDLERS
-const sizeSlider = document.getElementById("sizeSlider");
-sizeSlider.addEventListener("input", () => {
-    currentSize = parseInt(sizeSlider.value);
-});
-
+// Drawing event helpers
 function getPos(e) {
     const rect = canvas.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -125,7 +114,6 @@ function startDraw(e) {
     const { x, y } = getPos(e);
     ctx.moveTo(x, y);
 }
-
 function draw(e) {
     if (!drawing) return;
     const { x, y } = getPos(e);
@@ -136,45 +124,77 @@ function draw(e) {
     ctx.lineJoin = "round";
     ctx.stroke();
 }
-
 function endDraw() { drawing = false; }
 
 canvas.addEventListener("mousedown", startDraw);
 canvas.addEventListener("mousemove", draw);
 canvas.addEventListener("mouseup", endDraw);
-
 canvas.addEventListener("touchstart", startDraw, { passive:false });
 canvas.addEventListener("touchmove", draw, { passive:false });
 canvas.addEventListener("touchend", endDraw);
 
 document.querySelectorAll(".color-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-        eraseMode = false;
-        currentColor = btn.dataset.color;
-    });
+    btn.addEventListener("click", () => { eraseMode = false; currentColor = btn.dataset.color; });
 });
+document.getElementById("erase").addEventListener("click", () => { eraseMode = true; });
+document.getElementById("back").addEventListener("click", () => { drawView.style.display='none'; themeView.style.display='flex'; });
+document.getElementById("clear").addEventListener("click", () => { ctx.clearRect(0,0,canvas.width,canvas.height); });
 
-document.getElementById("erase").addEventListener("click", () => {
-    eraseMode = true;
-});
+// -------------------- Cropping & Resizing for Square Footage --------------------
+const TARGET_AREA = 20000; // same as main.js
 
-document.getElementById("back").addEventListener("click", () => {
-    drawView.style.display = 'none';
-    themeView.style.display = 'flex';
-});
+// Get bounding box of user drawing
+function getDrawingBoundingBox(drawCanvas) {
+    const data = drawCanvas.getContext('2d').getImageData(0,0,drawCanvas.width,drawCanvas.height).data;
+    let minX=drawCanvas.width, minY=drawCanvas.height, maxX=0, maxY=0;
+    for (let y=0;y<drawCanvas.height;y++){
+        for (let x=0;x<drawCanvas.width;x++){
+            const idx=(y*drawCanvas.width+x)*4;
+            if(data[idx+3]>0){
+                if(x<minX) minX=x; if(x>maxX) maxX=x;
+                if(y<minY) minY=y; if(y>maxY) maxY=y;
+            }
+        }
+    }
+    if(minX>maxX || minY>maxY) return null;
+    return {x:minX, y:minY, width:maxX-minX+1, height:maxY-minY+1};
+}
 
-document.getElementById("clear").addEventListener("click", () => {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-});
+// Crop canvas to bounding box
+function cropDrawing(drawCanvas, bbox){
+    const tempCanvas=document.createElement('canvas');
+    tempCanvas.width=bbox.width; tempCanvas.height=bbox.height;
+    tempCanvas.getContext('2d').drawImage(drawCanvas, bbox.x,bbox.y,bbox.width,bbox.height,0,0,bbox.width,bbox.height);
+    return tempCanvas;
+}
 
+// Resize to target area
+function resizeToTargetArea(canvas){
+    const aspectRatio=canvas.width/canvas.height;
+    const newWidth=Math.sqrt(TARGET_AREA*aspectRatio);
+    const newHeight=TARGET_AREA/newWidth;
+    const resizedCanvas=document.createElement('canvas');
+    resizedCanvas.width=newWidth; resizedCanvas.height=newHeight;
+    resizedCanvas.getContext('2d').drawImage(canvas,0,0,newWidth,newHeight);
+    return resizedCanvas;
+}
+
+// Send drawing to server
 document.getElementById("send").addEventListener("click", () => {
-    const dataUrl = canvas.toDataURL("image/png");
-    socket.emit("sendImage", { dataUrl, zoneId: selectedZone });
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawView.style.display = 'none';
-    themeView.style.display = 'flex';
+    const bbox = getDrawingBoundingBox(canvas);
+    if(!bbox) return alert("Please draw something!");
+    const cropped = cropDrawing(canvas,bbox);
+    const resized = resizeToTargetArea(cropped);
+    const dataUrl = resized.toDataURL("image/png");
+
+    socket.emit("sendImage",{ dataUrl, zoneId: selectedZone });
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    drawView.style.display='none';
+    themeView.style.display='flex';
 });
 
+// Screenshot (optional)
 document.getElementById("screenshot").addEventListener("click", () => {
     const link = document.createElement("a");
     link.href = canvas.toDataURL("image/png");
