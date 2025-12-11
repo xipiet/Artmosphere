@@ -1,23 +1,72 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Artmosphere</title>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Atmosphere Experience</title>
+    <link rel="stylesheet" href="css/index.css" />
+</head>
+<body>
 
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="stylesheet" href="/css/index.css">
-  </head>
-
-  <body>
-    <div class="container">
-      <h1>Artmosphere</h1>
-
-      <nav class="links">
-        <a href="/main">Main</a>
-        <a href="/ipad">iPad</a>
-        <a href="/admin">Admin</a>
-      </nav>
+    <div id="logo">
+        <img src="../favicon.png" alt="Atmosphere Logo">
     </div>
-  </body>
+
+    <video autoplay muted loop playsinline id="bg-video">
+        <source src="../plasma_backG.mp4" type="video/mp4" />
+    </video>
+
+    <div id="start-screen" class="screen active">
+        <div class="intro-text top">
+        Willkommen bei <strong>Artmosphere</strong>.
+        </div>
+        <button id="start-btn">Start</button>
+        <div class="intro-text bottom">
+        Tauche ein in interaktive, digitale Kunsträume erschaffen von <strong>dir</strong>.
+        </div>
+    </div>
+
+
+    <div id="second-screen" class="screen">
+        <div id="overlay-box">
+            <div id="close-box">✕</div>
+            <h2>Wie funktioniert es?</h2>
+            <p>
+                Du befindest dich jetzt in der kreativen Zone unserer Atmosphere Installation.
+                Das Thema dieses Raums ist eine <strong>Unterwasserwelt</strong>, die aus 
+                verschiedenen Bereichen besteht.
+                <br><br>
+                <strong>Wähle zuerst den Bereich</strong>, den du gestalten möchtest.
+                Danach gelangst du zu einer Zeichenfläche, auf der du 
+                dein eigenes Objekt malen kannst – ganz so, wie du es dir 
+                im Ocean vorstellst.
+                <br><br>
+                Wenn du fertig bist, schickst du deine Zeichnung ab. Sie wird anschließend 
+                in den echten Raum projiziert und als Teil 
+                des digitalen, animierten 3D-Ozeans zum Leben erweckt.
+                <br><br>
+                Viel Spaß dabei, deiner Fantasie freien Lauf zu lassen!
+            </p>
+        </div>
+    </div>
+
+<script>
+    const startBtn = document.getElementById("start-btn");
+    const startScreen = document.getElementById("start-screen");
+    const secondScreen = document.getElementById("second-screen");
+    const closeBox = document.getElementById("close-box");
+    const overlayBox = document.getElementById("overlay-box");
+
+    startBtn.addEventListener("click", () => {
+        startScreen.classList.remove("active");
+        secondScreen.classList.add("active");
+        document.body.classList.add("white-bg");
+    });
+
+    closeBox.addEventListener("click", () => {
+        overlayBox.style.display = "none";
+    });
+</script>
+
+</body>
 </html>

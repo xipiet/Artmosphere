@@ -1,19 +1,192 @@
-html, body {
-    height: 100%;
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
+
+
+body {
     margin: 0;
-    font-family: sans-serif;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #fafafa;
+    padding: 0;
+    overflow: hidden;
+    font-family: 'Poppins', sans-serif;
+    color: white;
+    overflow-x: hidden;
 }
 
-.links a {
-    display: inline-block;
-    margin: 8px;
-    padding: 12px 18px;
-    background: #222;
-    color: #fff;
-    text-decoration: none;
-    border-radius: 6px;
+
+#bg-video {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -1;
+}
+
+
+.screen {
+    display: none;
+    height: 100vh;
+    width: 100%;
+}
+
+.screen.active {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 25px;
+    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
+    opacity: 0;
+    animation: screenFadeIn 0.8s ease forwards;
+}
+
+@keyframes screenFadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+
+.intro-text {
+    font-size: 1.6rem;
+    max-width: 80%;
+    line-height: 1.4em;
+    color: white;
+    animation: fadeInUp 0.8s ease forwards;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+
+#start-btn {
+    background: linear-gradient(135deg, #aa60ff, #ffa260);
+    border: none;
+    color: white;
+    padding: 20px 50px;
+    font-size: 1.8rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s ease;
+    margin-top: 10px;
+    animation: buttonPulse 2.2s infinite ease-in-out;
+}
+
+#start-btn:hover {
+    transform: scale(1.08);
+}
+
+@keyframes buttonPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+
+.white-bg {
+    background: white;
+    color: black !important;
+    transition: background 0.4s ease;
+}
+
+
+#overlay-box {
+    position: relative;
+    background: rgba(0, 0, 0, 0.65);
+    padding: 35px;
+    width: 80%;
+    max-width: 700px;
+    border-radius: 12px;
+    line-height: 1.6em;
+    font-size: 1.2rem;
+    backdrop-filter: blur(6px);
+
+    opacity: 0;
+    transform: scale(0.85);
+    animation: overlayPop 0.6s ease forwards 0.4s;
+}
+
+@keyframes overlayPop {
+    from { opacity: 0; transform: scale(0.85); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+#overlay-box h2 {
+    font-size: 2rem;
+    margin-top: 0;
+    color: white; 
+}
+
+#overlay-box p {
+    color: white; 
+}
+
+
+#close-box {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    cursor: pointer;
+    font-size: 26px;
+    padding: 5px;
+
+    background: linear-gradient(135deg, #aa60ff, #ffa260);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+
+    transition: 0.2s ease;
+}
+
+#close-box:hover {
+    transform: scale(1.2);
+    filter: drop-shadow(0 0 8px rgba(255, 162, 96, 0.6));
+}
+
+
+
+#logo {
+    position: fixed;
+    top: 25px;
+    left: 50px;
+    z-index: 20;
+    opacity: 0;
+    animation: fadeInLogo 1.2s ease forwards;
+}
+
+@keyframes fadeInLogo {
+    from { opacity: 0; transform: translateY(-15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+#logo img {
+    height: 200px;
+    width: auto;
+    filter: drop-shadow(0px 0px 10px rgba(0,0,0,0.4));
+}
+
+
+@media (max-width: 768px) {
+
+    .intro-text {
+        font-size: 1.3rem;
+        max-width: 90%;
+    }
+
+    #start-btn {
+        font-size: 1.5rem;
+        padding: 16px 35px;
+    }
+
+    #overlay-box {
+        width: 90%;
+        padding: 25px;
+        font-size: 1rem;
+    }
+
+    #logo img {
+        height: 90px;
+    }
 }
