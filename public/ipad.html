@@ -1,53 +1,55 @@
 <!doctype html>
 <html lang="de">
-  <head>
-    <meta charset="utf-8" />
-    <title>iPad Draw</title>
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <link rel="stylesheet" href="/css/ipad.css">
-  </head>
 
-  <body>
-    <!-- THEME VIEW (Zone Selection) -->
-    <div id="themeView">
-      <div id="viewport">
-        <canvas id="bgCanvas"></canvas>
-        <div id="zone0" class="zone-overlay zone-0" style="top:0; height:33%;"></div>
-        <div id="zone1" class="zone-overlay zone-1" style="top:33%; height:34%;"></div>
-        <div id="zone2" class="zone-overlay zone-2" style="top:67%; height:33%;"></div>
-      </div>
+<head>
+  <meta charset="utf-8" />
+  <title>iPad Draw</title>
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <link rel="stylesheet" href="/css/ipad.css">
+</head>
+
+<body> 
+  <!-- THEME VIEW (Zone Selection) -->
+  <div id="themeView">
+    <div id="viewport"> <canvas id="bgCanvas"></canvas>
+      <div id="zone0" class="zone-overlay zone-0" style="top:0; height:33%;"></div>
+      <div id="zone1" class="zone-overlay zone-1" style="top:33%; height:34%;"></div>
+      <div id="zone2" class="zone-overlay zone-2" style="top:67%; height:33%;"></div>
     </div>
-
-    <!-- DRAWING VIEW -->
-    <div id="drawView">
-      <div id="toolbar">
-        <div id="colors">
-          <div class="color-btn" data-color="#000000" style="background:#000000"></div>
-          <div class="color-btn" data-color="#ff0000" style="background:#ff0000"></div>
-          <div class="color-btn" data-color="#00aaff" style="background:#00aaff"></div>
-          <div class="color-btn" data-color="#00cc44" style="background:#00cc44"></div>
-          <div class="color-btn" data-color="#ff9900" style="background:#ff9900"></div>
-          <div class="color-btn" data-color="#ffffff" style="background:#ffffff; border:2px solid #888"></div>
-        </div>
-        <div id="stroke-slider">
-          <label for="sizeSlider">Stift:</label>
-          <input type="range" id="sizeSlider" min="1" max="30" value="4">
-        </div>
-        <button id="erase">Eraser</button>
+  </div> 
+  
+  <!-- DRAWING VIEW -->
+  <div id="drawView">
+    <div id="toolbar">
+      <div id="colors">
+        <div class="color-btn" data-color="#000000" style="background:#000000"></div>
+        <div class="color-btn" data-color="#ff0000" style="background:#ff0000"></div>
+        <div class="color-btn" data-color="#00aaff" style="background:#00aaff"></div>
+        <div class="color-btn" data-color="#00cc44" style="background:#00cc44"></div>
+        <div class="color-btn" data-color="#ff9900" style="background:#ff9900"></div>
+        <div class="color-btn" data-color="#ffffff" style="background:#ffffff; border:2px solid #888"></div>
       </div>
 
-      <canvas id="drawArea" width="800" height="500"></canvas>
-
-      <div id="controls">
-        <button id="back">Back to Zones</button>
-        <button id="clear">Clear</button>
-        <button id="send">Send</button>
-        <button id="screenshot">Screenshot Draw</button>
-      </div>
+      <div id="stroke-slider"> 
+        <label for="sizeSlider">Stift:</label> 
+        <input type="range" id="sizeSlider" min="1" max="30" value="4"> 
+      </div> 
+      <button id="erase">Eraser</button>
+    </div> 
+    
+    <canvas id="drawArea" width="800" height="500"></canvas>
+    
+    <div id="controls"> 
+      <button id="back">Back to Zones</button> 
+      <button id="clear">Clear</button> 
+      <button id="send">Send</button> 
+      <button id="screenshot">Screenshot Draw</button> 
+      <button id="kidsToggle">Kids Mode</button> 
     </div>
+  </div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/ipad.js" defer></script>
+</body>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/ipad.js" defer></script>
-  </body>
 </html>

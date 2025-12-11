@@ -20,6 +20,35 @@ let currentSize = 4;
 let eraseMode = false;
 let selectedZone = null;
 
+let initialized = false;
+
+// KIDS MODE HANDLING
+socket.on("kidsMode:update", (d) => { 
+    const newMode = d.kidsMode; 
+    if (!initialized) { initialized = true; 
+        kidsMode = newMode; 
+        return; 
+    } 
+    if (newMode && window.location.pathname !== "/ipad-kids") { 
+        window.location.href = "/ipad-kids"; 
+        return; 
+    } 
+    if (!newMode && window.location.pathname !== "/ipad") { 
+        window.location.href = "/ipad"; 
+        return; 
+    } 
+    
+    kidsMode = newMode; 
+});
+
+const toggleBtn = document.getElementById("kidsToggle"); 
+if (toggleBtn) { 
+    toggleBtn.addEventListener("click", () => { 
+        kidsMode = !kidsMode; 
+        socket.emit("kidsMode:set", kidsMode); 
+    }); 
+}
+
 // THEME DISPLAY
 let bgImg = new Image();
 function drawBgImage() {

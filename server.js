@@ -57,6 +57,10 @@ app.get("/ipad", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "ipad.html"));
 });
 
+app.get("/ipad-kids", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "ipad-kids.html"));
+});
+
 app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
@@ -95,7 +99,32 @@ app.get("/theme-image/:filename", (req, res) => {
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
 
-  // Send config + settings to new client
+  // Kids Mode (saved per device)
+  if (!global.deviceModes) global.deviceModes = {};
+  if (!global.deviceModes[socket.id]) {
+    global.deviceModes[socket.id] = { kidsMode: false };
+  }
+
+  // tell device its current mode
+  socket.emit("kidsMode:update", global.deviceModes[socket.id]);
+
+  // device toggles its own kidsMode
+  socket.on("kidsMode:set", (isActive) => {
+    global.deviceModes[socket.id].kidsMode = isActive;
+    socket.emit("kidsMode:update", { kidsMode: isActive });
+    console.log(`KidsMode for ${socket.id} = ${isActive}`);
+  });
+
+  // Admin sets kidsMode for specific device
+  socket.on("admin:kidsModeSet", ({ targetId, isActive }) => {
+    if (global.deviceModes[targetId]) {
+      global.deviceModes[targetId].kidsMode = isActive;
+      io.to(targetId).emit("kidsMode:update", { kidsMode: isActive });
+      console.log(`Admin set KidsMode for ${targetId} = ${isActive}`);
+    }
+  });
+
+  // Init: send theme + server settings
   socket.emit("app:init", {
     config: serverConfig,
     settings: serverSettings
@@ -126,7 +155,7 @@ io.on("connection", (socket) => {
     socket.emit("admin:updateGallery", activeImages);
   });
 
-  // Admin toggles fade
+  // Admin changes global settings
   socket.on("admin:updateSettings", (newSettings) => {
     serverSettings = newSettings;
     io.emit("admin:updateSettings", serverSettings);
@@ -139,12 +168,17 @@ io.on("connection", (socket) => {
     io.emit("config:changed", serverConfig);
   });
 
-  // Admin saves config
   socket.on("saveConfig", (newConfig, callback) => {
     serverConfig = newConfig;
     saveConfig();
     io.emit("config:changed", serverConfig);
     if (callback) callback({ ok: true });
+  });
+
+  // Disconnect Cleanup
+  socket.on("disconnect", () => {
+    delete global.deviceModes[socket.id];
+    console.log("Client disconnected:", socket.id);
   });
 });
 
