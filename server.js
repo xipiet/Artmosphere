@@ -57,6 +57,10 @@ app.get("/ipad", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "ipad.html"));
 });
 
+app.get("/ipad-endscreen", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "ipadEndscreen.html"));
+});
+
 app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin.html"));
 });

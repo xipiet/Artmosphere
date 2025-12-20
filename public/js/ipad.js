@@ -171,8 +171,7 @@ document.getElementById("send").addEventListener("click", () => {
     const dataUrl = canvas.toDataURL("image/png");
     socket.emit("sendImage", { dataUrl, zoneId: selectedZone });
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawView.style.display = 'none';
-    themeView.style.display = 'flex';
+    window.location.href = "/ipad-endscreen";
 });
 
 document.getElementById("screenshot").addEventListener("click", () => {

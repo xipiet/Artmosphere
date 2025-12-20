@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artmosphere – Kunstwerk Download</title>
+    <link rel="stylesheet" href="css/ipadEndscreen.css">
+    <!-- QR-Code-Bibliothek für einfache Generierung -->
+    <script src="https://cdn.rawgit.com/davidshimjs/qrcodejs/gh-pages/qrcode.min.js"></script>
+</head>
+<body>
+    <!-- Video-Hintergrund -->
+    <video autoplay muted loop id="background-video">
+        <source src="media/background.mp4" type="video/mp4">
+    </video>
+
+    <!-- Navigation (optional, falls benötigt) -->
+    <nav>
+        <div class="logo">
+            <img src="media/favicon.png" alt="Artmosphere Logo">
+        </div>
+    </nav>
+
+    <!-- Hauptinhalt -->
+    <main>
+        <h1>Geschafft!</h1>
+        <p>Dein Kunstwerk wird gleich angezeigt!</p>
+
+        <!-- Button: Noch etwas malen -->
+        <a href="/ipad" class="button">Noch etwas malen</a>
+
+<!-- Animation: PNG-Bild bewegt sich von links nach rechts -->
+<!--<div class="animation-container">
+    <div class="dotted-line"></div>
+    <img src="media/test-fisch.png" alt="Gemaltes Bild" class="moving-image">
+    <img src="themes/ocean.png" alt="canvas" class="canvas-target">
+</div>-->
+
+
+        <!-- QR-Code und Link -->
+        <div class="download-section">
+            <div id="qrcode" class="qrcode"></div>
+            <div class="link-text">
+                <p>Scanne den QR-Code oder benutze den Link,<br>
+                   um dein Kunstwerk herunterzuladen!</p>
+                <a href="http://ordner.artmosphere.duckdns.org" target="_blank">ordner.artmosphere.duckdns.org</a>
+            </div>
+        </div>
+
+        
+    </main>
+
+    <script src="js/ipadEndscreen.js"></script>
+</body>
+</html>
