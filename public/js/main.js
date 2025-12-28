@@ -49,10 +49,20 @@ update() {
 
     // Fade
     if (serverSettings.fade) {
+    const prevAlpha = this.alpha;
     this.alpha = Math.max(0, this.alpha - 0.0005);
+    
+    // Notify server when image is fully faded
+    if (prevAlpha > 0 && this.alpha === 0) {
+        socket.emit('image:faded', this.id);
+    }
     } else {
     this.alpha = 1;
     }
+}
+
+isFaded() {
+    return this.alpha === 0;
 }
 
 draw() {
@@ -67,10 +77,16 @@ const activeImages = [];
 function animate() {
 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-activeImages.forEach(obj => {
-    obj.update();
-    obj.draw();
-});
+// Update and draw, then remove fully faded images
+for (let i = activeImages.length - 1; i >= 0; i--) {
+    activeImages[i].update();
+    activeImages[i].draw();
+    
+    // Remove if fully faded
+    if (activeImages[i].isFaded()) {
+        activeImages.splice(i, 1);
+    }
+}
 
 requestAnimationFrame(animate);
 }
