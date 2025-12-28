@@ -150,6 +150,16 @@ io.on("connection", (socket) => {
     io.emit("config:changed", serverConfig);
     if (callback) callback({ ok: true });
   });
+
+  // Main display notifies that image is fully faded
+  socket.on("image:faded", (imageId) => {
+    const index = activeImages.findIndex(img => img.id === imageId);
+    if (index !== -1) {
+      activeImages.splice(index, 1);
+      console.log(`Image ${imageId} faded out. Remaining: ${activeImages.length}`);
+      io.emit("admin:updateGallery", activeImages);
+    }
+  });
 });
 
 // ----------------------------------
