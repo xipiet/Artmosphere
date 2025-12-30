@@ -20,9 +20,22 @@
             </select>
           </div>
           <div class="setting-box">
-            <label>
-              <input type="checkbox" id="fadeToggle" checked> Fade enabled
-            </label>
+            <label for="galleryModeDropdown">Gallery Mode:</label>
+            <select id="galleryModeDropdown">
+              <option value="fade">Fade Mode (auto fadeout)</option>
+              <option value="maxPaintings">Max Paintings Mode</option>
+            </select>
+          </div>
+          <div class="setting-box" id="maxPaintingsSettings" style="display:none;">
+            <label for="maxImagesInput">Max paintings on canvas:</label>
+            <input id="maxImagesInput" type="number" value="30" min="1" max="500">
+          </div>
+          <div class="setting-box" id="maxImagesModeSetting" style="display:none;">
+            <label for="maxImagesModeDropdown">When max is reached:</label>
+            <select id="maxImagesModeDropdown">
+              <option value="fade">Outfade oldest</option>
+              <option value="remove">Remove immediately</option>
+            </select>
           </div>
           <div id="status" style="display:none;"></div>
         </div>

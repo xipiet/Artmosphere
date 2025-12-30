@@ -30,6 +30,7 @@ constructor(id, img, zone) {
 
     this.zone = zone;
     this.alpha = 1;
+    this.isFading = false; // Flag if this image was explicitly marked to fade
 }
 
 update() {
@@ -47,8 +48,8 @@ update() {
     this.vy *= -1;
     }
 
-    // Fade
-    if (serverSettings.fade) {
+    // Fade: either in fade mode OR if explicitly marked to fade (e.g., due to max images limit)
+    if (serverSettings.fade || this.isFading) {
     const prevAlpha = this.alpha;
     this.alpha = Math.max(0, this.alpha - 0.0005);
     
@@ -56,8 +57,6 @@ update() {
     if (prevAlpha > 0 && this.alpha === 0) {
         socket.emit('image:faded', this.id);
     }
-    } else {
-    this.alpha = 1;
     }
 }
 
@@ -77,15 +76,22 @@ const activeImages = [];
 function animate() {
 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-// Update and draw, then remove fully faded images
-for (let i = activeImages.length - 1; i >= 0; i--) {
+// Update and draw from oldest to newest (so newest is on top)
+// Remove fully faded images from the back
+const imagesToRemove = [];
+for (let i = 0; i < activeImages.length; i++) {
     activeImages[i].update();
     activeImages[i].draw();
     
-    // Remove if fully faded
+    // Mark faded images for removal
     if (activeImages[i].isFaded()) {
-        activeImages.splice(i, 1);
+        imagesToRemove.push(i);
     }
+}
+
+// Remove marked images (remove from back to front to preserve indices)
+for (let i = imagesToRemove.length - 1; i >= 0; i--) {
+    activeImages.splice(imagesToRemove[i], 1);
 }
 
 requestAnimationFrame(animate);
@@ -93,14 +99,14 @@ requestAnimationFrame(animate);
 animate();
 
 // INITIAL CONFIG LOAD
-socket.on("app:init", ({ config, settings }) => {
-serverSettings = settings;
+socket.on("app:init", (config) => {
+serverSettings = { fade: config.galleryMode === 'fade', galleryMode: config.galleryMode };
 
 const themeName = config.activeTheme;
 const theme = config.themes[themeName];
 themeConfig = theme;
 
-statusEl.textContent = `theme: ${themeName} | fade: ${settings.fade ? 'ON' : 'OFF'}`;
+statusEl.textContent = `theme: ${themeName} | mode: ${config.galleryMode} | fade: ${serverSettings.fade ? 'ON' : 'OFF'}`;
 
 // Hintergrund laden
 canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.image)}")`;
@@ -120,9 +126,9 @@ canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.ima
 });
 
 // SETTINGS UPDATE
-socket.on("admin:updateSettings", (settings) => {
-serverSettings = settings;
-statusEl.textContent = `theme: ${themeConfig ? themeConfig.id : '?'} | fade: ${settings.fade ? 'ON' : 'OFF'}`;
+socket.on("admin:updateSettings", (config) => {
+serverSettings = { fade: config.galleryMode === 'fade', galleryMode: config.galleryMode };
+statusEl.textContent = `theme: ${themeConfig ? themeConfig.id : '?'} | mode: ${config.galleryMode} | fade: ${serverSettings.fade ? 'ON' : 'OFF'}`;
 });
 
 // Bild kommt an, mit Zone-ID und eindeutiger ID
@@ -143,6 +149,17 @@ if (index !== -1) {
     console.log("Image removed. Remaining:", activeImages.length);
 } else {
     console.log("Image not found:", imageId);
+}
+});
+
+// Server signals to fade out an image (when max reached in fade mode)
+socket.on("image:startFade", (imageId) => {
+const img = activeImages.find(img => img.id === imageId);
+if (img) {
+    img.isFading = true; // Mark for fading
+    console.log("Image marked for fade:", imageId);
+} else {
+    console.log("Image not found for fade:", imageId);
 }
 });
 

@@ -1,13 +1,16 @@
 const socket = io();
 const preview = document.getElementById('preview');
 const status = document.getElementById('status');
-const fadeToggle = document.getElementById('fadeToggle');
+const galleryModeDropdown = document.getElementById('galleryModeDropdown');
+const maxImagesInput = document.getElementById('maxImagesInput');
+const maxImagesModeDropdown = document.getElementById('maxImagesModeDropdown');
+const maxPaintingsSettings = document.getElementById('maxPaintingsSettings');
+const maxImagesModeSetting = document.getElementById('maxImagesModeSetting');
 const themeDropdown = document.getElementById('themeDropdown');
 const gallery = document.getElementById('gallery');
 const galleryCount = document.getElementById('galleryCount');
 
 let currentConfig = null;
-let currentSettings = null;
 let activeImages = [];
 
 // Utility: Show status message
@@ -20,12 +23,15 @@ function showStatus(message, isError = false) {
     }, 3000);
 }
 
-socket.on('app:init', (d) => {
-    currentConfig = d.config || d;
-    currentSettings = d.settings || { fade: true };
+socket.on('app:init', (config) => {
+    currentConfig = config;
     
     document.getElementById('currentThemeName').textContent = currentConfig.activeTheme || 'ocean';
-    fadeToggle.checked = currentSettings.fade !== false;
+    galleryModeDropdown.value = currentConfig.galleryMode || 'fade';
+    maxImagesInput.value = currentConfig.maxImages || 30;
+    maxImagesModeDropdown.value = currentConfig.maxImagesMode || 'fade';
+    
+    updateGalleryModeUI();
     
     // Populate theme dropdown
     updateThemeDropdown();
@@ -54,9 +60,12 @@ socket.on('config:changed', (conf) => {
     showStatus('Theme config updated');
 });
 
-socket.on('admin:updateSettings', (settings) => {
-    currentSettings = settings;
-    fadeToggle.checked = settings.fade !== false;
+socket.on('admin:updateSettings', (config) => {
+    currentConfig = config;
+    galleryModeDropdown.value = config.galleryMode || 'fade';
+    maxImagesInput.value = config.maxImages || 30;
+    maxImagesModeDropdown.value = config.maxImagesMode || 'fade';
+    updateGalleryModeUI();
 });
 
 // Gallery updated
@@ -116,11 +125,37 @@ window.deleteImage = function(imageId) {
     }
 };
 
-// Fade toggle
-fadeToggle.addEventListener('change', () => {
-    const newSettings = { fade: fadeToggle.checked };
-    socket.emit('admin:updateSettings', newSettings);
+// Gallery Mode Dropdown + maxImages/maxImagesMode settings
+galleryModeDropdown.addEventListener('change', () => {
+    updateSettings();
 });
+
+maxImagesInput.addEventListener('change', () => {
+    updateSettings();
+});
+
+maxImagesModeDropdown.addEventListener('change', () => {
+    updateSettings();
+});
+
+// Show/hide max paintings settings based on gallery mode
+function updateGalleryModeUI() {
+    const isMaxPaintingsMode = galleryModeDropdown.value === 'maxPaintings';
+    maxPaintingsSettings.style.display = isMaxPaintingsMode ? 'block' : 'none';
+    maxImagesModeSetting.style.display = isMaxPaintingsMode ? 'block' : 'none';
+}
+
+function updateSettings() {
+    const newConfig = { 
+        ...currentConfig,
+        galleryMode: galleryModeDropdown.value,
+        maxImages: Number(maxImagesInput.value),
+        maxImagesMode: maxImagesModeDropdown.value
+    };
+    socket.emit('admin:updateSettings', newConfig);
+    updateGalleryModeUI();
+    showStatus('Settings updated');
+}
 
 // Save button
 document.getElementById('saveBtn').addEventListener('click', () => {

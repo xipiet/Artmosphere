@@ -1,5 +1,5 @@
 {
-  "activeTheme": "jungle",
+  "activeTheme": "ocean",
   "themes": {
     "ocean": {
       "image": "ocean.png",
@@ -41,5 +41,8 @@
         }
       ]
     }
-  }
+  },
+  "galleryMode": "maxPaintings",
+  "maxImages": 2,
+  "maxImagesMode": "remove"
 }

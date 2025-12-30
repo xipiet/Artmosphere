@@ -14,15 +14,16 @@ const io = new Server(server);
 const configPath = path.join(__dirname, "public", "themes", "config.json");
 
 let serverConfig = {};
-let serverSettings = {
-  fade: true
-};
 let activeImages = []; // Store active paintings { id, dataUrl, zoneId, timestamp }
 
 // Load config.json
 function loadConfig() {
   try {
     serverConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    // Ensure defaults
+    if (serverConfig.galleryMode === undefined) serverConfig.galleryMode = "fade";
+    if (serverConfig.maxImages === undefined) serverConfig.maxImages = 30;
+    if (serverConfig.maxImagesMode === undefined) serverConfig.maxImagesMode = "fade";
     console.log("Theme config loaded:", serverConfig.activeTheme);
   } catch (err) {
     console.error("ERROR loading config.json:", err);
@@ -99,16 +100,30 @@ app.get("/theme-image/:filename", (req, res) => {
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
 
-  // Send config + settings to new client
-  socket.emit("app:init", {
-    config: serverConfig,
-    settings: serverSettings
-  });
+  // Send config to new client (settings are now part of config)
+  socket.emit("app:init", serverConfig);
 
   // iPad sends image + zone
   socket.on("sendImage", ({ dataUrl, zoneId }) => {
     const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const imageData = { id: imageId, dataUrl, zoneId, timestamp: Date.now() };
+    
+    // Only enforce max images limit in "maxPaintings" mode
+    if (serverConfig.galleryMode === "maxPaintings" && activeImages.length >= serverConfig.maxImages) {
+      const oldestImage = activeImages.shift();
+      console.log(`Max images reached (${serverConfig.maxImages}). Removing oldest: ${oldestImage.id}`);
+      
+      if (serverConfig.maxImagesMode === "fade") {
+        // Signal to main canvas to fade out the oldest image
+        io.emit("image:startFade", oldestImage.id);
+      } else {
+        // Remove immediately from all displays
+        io.emit("admin:removeImageFromMain", oldestImage.id);
+      }
+      // Update gallery view in admin
+      io.emit("admin:updateGallery", activeImages);
+    }
+    
     activeImages.push(imageData);
     
     io.emit("newImage", imageData);
@@ -132,8 +147,11 @@ io.on("connection", (socket) => {
 
   // Admin toggles fade
   socket.on("admin:updateSettings", (newSettings) => {
-    serverSettings = newSettings;
-    io.emit("admin:updateSettings", serverSettings);
+    serverConfig.galleryMode = newSettings.galleryMode;
+    serverConfig.maxImages = newSettings.maxImages;
+    serverConfig.maxImagesMode = newSettings.maxImagesMode;
+    saveConfig();
+    io.emit("admin:updateSettings", serverConfig);
   });
 
   // Admin updates Theme Config
