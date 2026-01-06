@@ -4,6 +4,10 @@ const status = document.getElementById('status');
 const galleryModeDropdown = document.getElementById('galleryModeDropdown');
 const maxImagesInput = document.getElementById('maxImagesInput');
 const maxImagesModeDropdown = document.getElementById('maxImagesModeDropdown');
+const normalizeToggle = document.getElementById('normalizeToggle');
+const foregroundPaintings = document.getElementById('foregroundPaintings');
+const midgroundPaintings = document.getElementById('midgroundPaintings');
+const backgroundPaintings = document.getElementById('backgroundPaintings');
 const maxPaintingsSettings = document.getElementById('maxPaintingsSettings');
 const maxImagesModeSetting = document.getElementById('maxImagesModeSetting');
 const themeDropdown = document.getElementById('themeDropdown');
@@ -11,6 +15,7 @@ const gallery = document.getElementById('gallery');
 const galleryCount = document.getElementById('galleryCount');
 
 let currentConfig = null;
+let currentSettings = null;
 let activeImages = [];
 
 // Utility: Show status message
@@ -23,13 +28,32 @@ function showStatus(message, isError = false) {
     }, 3000);
 }
 
-socket.on('app:init', (config) => {
-    currentConfig = config;
+socket.on('app:init', (d) => {
+    currentConfig = d.config || d;
+    currentSettings = d.settings || {
+        galleryMode: "maxPaintings",
+        maxImages: 30,
+        maxImagesMode: "fade",
+        normalizeSize: true,
+        foregroundPaintings: 10,
+        midgroundPaintings: 10,
+        backgroundPaintings: 10,
+        foregroundOpacityMax: 1.0,
+        foregroundOpacityMin: 0.7,
+        midgroundOpacityMax: 0.69,
+        midgroundOpacityMin: 0.4,
+        backgroundOpacityMax: 0.39,
+        backgroundOpacityMin: 0.1
+    };
     
     document.getElementById('currentThemeName').textContent = currentConfig.activeTheme || 'ocean';
-    galleryModeDropdown.value = currentConfig.galleryMode || 'fade';
-    maxImagesInput.value = currentConfig.maxImages || 30;
-    maxImagesModeDropdown.value = currentConfig.maxImagesMode || 'fade';
+    galleryModeDropdown.value = currentSettings.galleryMode || 'fade';
+    maxImagesInput.value = currentSettings.maxImages || 30;
+    maxImagesModeDropdown.value = currentSettings.maxImagesMode || 'fade';
+    normalizeToggle.checked = currentSettings.normalizeSize !== false;
+    foregroundPaintings.value = currentSettings.foregroundPaintings || 10;
+    midgroundPaintings.value = currentSettings.midgroundPaintings || 10;
+    backgroundPaintings.value = currentSettings.backgroundPaintings || 10;
     
     updateGalleryModeUI();
     
@@ -56,15 +80,31 @@ socket.on('config:changed', (conf) => {
     currentConfig = conf;
     document.getElementById('currentThemeName').textContent = conf.activeTheme;
     updateThemeDropdown();
+    
+    // Update zone values when theme changes
+    const t = currentConfig.themes[currentConfig.activeTheme];
+    if (t && t.zones) {
+        document.getElementById('z0start').value = t.zones[0].yStartPct;
+        document.getElementById('z0end').value = t.zones[0].yEndPct;
+        document.getElementById('z1start').value = t.zones[1].yStartPct;
+        document.getElementById('z1end').value = t.zones[1].yEndPct;
+        document.getElementById('z2start').value = t.zones[2].yStartPct;
+        document.getElementById('z2end').value = t.zones[2].yEndPct;
+    }
+    
     previewBg(currentConfig.themes[currentConfig.activeTheme].image);
     showStatus('Theme config updated');
 });
 
-socket.on('admin:updateSettings', (config) => {
-    currentConfig = config;
-    galleryModeDropdown.value = config.galleryMode || 'fade';
-    maxImagesInput.value = config.maxImages || 30;
-    maxImagesModeDropdown.value = config.maxImagesMode || 'fade';
+socket.on('admin:updateSettings', (settings) => {
+    currentSettings = settings;
+    galleryModeDropdown.value = settings.galleryMode || 'fade';
+    maxImagesInput.value = settings.maxImages || 30;
+    maxImagesModeDropdown.value = settings.maxImagesMode || 'fade';
+    normalizeToggle.checked = settings.normalizeSize !== false;
+    foregroundPaintings.value = settings.foregroundPaintings || 10;
+    midgroundPaintings.value = settings.midgroundPaintings || 10;
+    backgroundPaintings.value = settings.backgroundPaintings || 10;
     updateGalleryModeUI();
 });
 
@@ -131,10 +171,36 @@ galleryModeDropdown.addEventListener('change', () => {
 });
 
 maxImagesInput.addEventListener('change', () => {
+    // Automatically distribute max images equally across layers
+    const maxImg = Number(maxImagesInput.value);
+    const base = Math.floor(maxImg / 3);
+    const remainder = maxImg % 3;
+    
+    // Give foreground the remainder to handle uneven division
+    foregroundPaintings.value = base + remainder;
+    midgroundPaintings.value = base;
+    backgroundPaintings.value = base;
+    
     updateSettings();
 });
 
 maxImagesModeDropdown.addEventListener('change', () => {
+    updateSettings();
+});
+
+normalizeToggle.addEventListener('change', () => {
+    updateSettings();
+});
+
+foregroundPaintings.addEventListener('change', () => {
+    updateSettings();
+});
+
+midgroundPaintings.addEventListener('change', () => {
+    updateSettings();
+});
+
+backgroundPaintings.addEventListener('change', () => {
     updateSettings();
 });
 
@@ -146,13 +212,22 @@ function updateGalleryModeUI() {
 }
 
 function updateSettings() {
-    const newConfig = { 
-        ...currentConfig,
+    const newSettings = { 
         galleryMode: galleryModeDropdown.value,
         maxImages: Number(maxImagesInput.value),
-        maxImagesMode: maxImagesModeDropdown.value
+        maxImagesMode: maxImagesModeDropdown.value,
+        normalizeSize: normalizeToggle.checked,
+        foregroundPaintings: Number(foregroundPaintings.value) || 10,
+        midgroundPaintings: Number(midgroundPaintings.value) || 10,
+        backgroundPaintings: Number(backgroundPaintings.value) || 10,
+        foregroundOpacityMax: 1.0,
+        foregroundOpacityMin: 0.7,
+        midgroundOpacityMax: 0.69,
+        midgroundOpacityMin: 0.4,
+        backgroundOpacityMax: 0.39,
+        backgroundOpacityMin: 0.1
     };
-    socket.emit('admin:updateSettings', newConfig);
+    socket.emit("admin:updateSettings", newSettings);
     updateGalleryModeUI();
     showStatus('Settings updated');
 }

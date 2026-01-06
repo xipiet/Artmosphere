@@ -27,7 +27,7 @@
             </select>
           </div>
           <div class="setting-box" id="maxPaintingsSettings" style="display:none;">
-            <label for="maxImagesInput">Max paintings on canvas:</label>
+            <label for="maxImagesInput">Max paintings:</label>
             <input id="maxImagesInput" type="number" value="30" min="1" max="500">
           </div>
           <div class="setting-box" id="maxImagesModeSetting" style="display:none;">
@@ -37,7 +37,78 @@
               <option value="remove">Remove immediately</option>
             </select>
           </div>
+          <div class="setting-box">
+            <label>
+              <input type="checkbox" id="normalizeToggle" checked>
+              Normalize painting sizes
+            </label>
+          </div>
           <div id="status" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- LAYER DISTRIBUTION -->
+      <div class="zones-panel" style="margin-bottom: 20px;">
+        <h3>🎭 Layer Distribution & Opacity</h3>
+        <div style="display:flex; gap:30px; flex-wrap:wrap;">
+          
+          <!-- Foreground -->
+          <div style="flex: 1; min-width: 200px;">
+            <strong>🔴 Foreground (Vordergrund)</strong>
+            <div style="margin-top: 10px;">
+              <label style="display:block; margin-bottom:5px;">
+                Paintings:
+                <input 
+                  id="foregroundPaintings" 
+                  type="number" 
+                  value="10" 
+                  min="1" 
+                  max="100"
+                  style="width:80px; margin-left:10px;"
+                >
+              </label>
+              <small style="color:#666;">Opacity: 70% - 100%</small>
+            </div>
+          </div>
+
+          <!-- Midground -->
+          <div style="flex: 1; min-width: 200px;">
+            <strong>🟡 Midground (Mittelgrund)</strong>
+            <div style="margin-top: 10px;">
+              <label style="display:block; margin-bottom:5px;">
+                Paintings:
+                <input 
+                  id="midgroundPaintings" 
+                  type="number" 
+                  value="10" 
+                  min="1" 
+                  max="100"
+                  style="width:80px; margin-left:10px;"
+                >
+              </label>
+              <small style="color:#666;">Opacity: 40% - 69%</small>
+            </div>
+          </div>
+
+          <!-- Background -->
+          <div style="flex: 1; min-width: 200px;">
+            <strong>🔵 Background (Hintergrund)</strong>
+            <div style="margin-top: 10px;">
+              <label style="display:block; margin-bottom:5px;">
+                Paintings:
+                <input 
+                  id="backgroundPaintings" 
+                  type="number" 
+                  value="10" 
+                  min="1" 
+                  max="100"
+                  style="width:80px; margin-left:10px;"
+                >
+              </label>
+              <small style="color:#666;">Opacity: 10% - 39%</small>
+            </div>
+          </div>
+
         </div>
       </div>
 

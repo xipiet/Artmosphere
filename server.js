@@ -12,18 +12,30 @@ const io = new Server(server);
 // Load Theme Config + Settings
 // ----------------------------------
 const configPath = path.join(__dirname, "public", "themes", "config.json");
+const settingsPath = path.join(__dirname, "settings.json");
 
 let serverConfig = {};
+let serverSettings = {
+  galleryMode: "maxPaintings",
+  maxImages: 30,
+  maxImagesMode: "fade",
+  normalizeSize: true,
+  foregroundPaintings: 10,
+  midgroundPaintings: 10,
+  backgroundPaintings: 10,
+  foregroundOpacityMax: 1.0,
+  foregroundOpacityMin: 0.7,
+  midgroundOpacityMax: 0.69,
+  midgroundOpacityMin: 0.4,
+  backgroundOpacityMax: 0.39,
+  backgroundOpacityMin: 0.1
+};
 let activeImages = []; // Store active paintings { id, dataUrl, zoneId, timestamp }
 
-// Load config.json
+// -------------------- Load Config (Themes only) --------------------
 function loadConfig() {
   try {
     serverConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    // Ensure defaults
-    if (serverConfig.galleryMode === undefined) serverConfig.galleryMode = "fade";
-    if (serverConfig.maxImages === undefined) serverConfig.maxImages = 30;
-    if (serverConfig.maxImagesMode === undefined) serverConfig.maxImagesMode = "fade";
     console.log("Theme config loaded:", serverConfig.activeTheme);
   } catch (err) {
     console.error("ERROR loading config.json:", err);
@@ -31,10 +43,29 @@ function loadConfig() {
 }
 loadConfig();
 
-// Save config.json
+// -------------------- Load Settings (Admin settings) --------------------
+function loadSettings() {
+  try {
+    if (fs.existsSync(settingsPath)) {
+      serverSettings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      console.log("Settings loaded:", serverSettings);
+    }
+  } catch (e) {
+    console.error("Failed to load settings.json", e);
+  }
+}
+loadSettings();
+
+// Save config.json (Themes)
 function saveConfig() {
   fs.writeFileSync(configPath, JSON.stringify(serverConfig, null, 2), "utf8");
   console.log("Theme config saved.");
+}
+
+// Save settings.json (Admin settings)
+function saveSettings() {
+  fs.writeFileSync(settingsPath, JSON.stringify(serverSettings, null, 2), "utf8");
+  console.log("Settings saved.");
 }
 
 // ----------------------------------
@@ -100,8 +131,11 @@ app.get("/theme-image/:filename", (req, res) => {
 io.on("connection", (socket) => {
   console.log("Client connected:", socket.id);
 
-  // Send config to new client (settings are now part of config)
-  socket.emit("app:init", serverConfig);
+  // Send config + settings to new client
+  socket.emit("app:init", {
+    config: serverConfig,
+    settings: serverSettings
+  });
 
   // iPad sends image + zone
   socket.on("sendImage", ({ dataUrl, zoneId }) => {
@@ -109,11 +143,11 @@ io.on("connection", (socket) => {
     const imageData = { id: imageId, dataUrl, zoneId, timestamp: Date.now() };
     
     // Only enforce max images limit in "maxPaintings" mode
-    if (serverConfig.galleryMode === "maxPaintings" && activeImages.length >= serverConfig.maxImages) {
+    if (serverSettings.galleryMode === "maxPaintings" && activeImages.length >= serverSettings.maxImages) {
       const oldestImage = activeImages.shift();
-      console.log(`Max images reached (${serverConfig.maxImages}). Removing oldest: ${oldestImage.id}`);
+      console.log(`Max images reached (${serverSettings.maxImages}). Removing oldest: ${oldestImage.id}`);
       
-      if (serverConfig.maxImagesMode === "fade") {
+      if (serverSettings.maxImagesMode === "fade") {
         // Signal to main canvas to fade out the oldest image
         io.emit("image:startFade", oldestImage.id);
       } else {
@@ -145,13 +179,23 @@ io.on("connection", (socket) => {
     socket.emit("admin:updateGallery", activeImages);
   });
 
-  // Admin toggles fade
+  // Admin updates settings
   socket.on("admin:updateSettings", (newSettings) => {
-    serverConfig.galleryMode = newSettings.galleryMode;
-    serverConfig.maxImages = newSettings.maxImages;
-    serverConfig.maxImagesMode = newSettings.maxImagesMode;
-    saveConfig();
-    io.emit("admin:updateSettings", serverConfig);
+    serverSettings.galleryMode = newSettings.galleryMode;
+    serverSettings.maxImages = newSettings.maxImages;
+    serverSettings.maxImagesMode = newSettings.maxImagesMode;
+    serverSettings.normalizeSize = newSettings.normalizeSize !== false;
+    serverSettings.foregroundPaintings = Number(newSettings.foregroundPaintings) || 10;
+    serverSettings.midgroundPaintings = Number(newSettings.midgroundPaintings) || 10;
+    serverSettings.backgroundPaintings = Number(newSettings.backgroundPaintings) || 10;
+    serverSettings.foregroundOpacityMax = Number(newSettings.foregroundOpacityMax) || 1.0;
+    serverSettings.foregroundOpacityMin = Number(newSettings.foregroundOpacityMin) || 0.7;
+    serverSettings.midgroundOpacityMax = Number(newSettings.midgroundOpacityMax) || 0.69;
+    serverSettings.midgroundOpacityMin = Number(newSettings.midgroundOpacityMin) || 0.4;
+    serverSettings.backgroundOpacityMax = Number(newSettings.backgroundOpacityMax) || 0.39;
+    serverSettings.backgroundOpacityMin = Number(newSettings.backgroundOpacityMin) || 0.1;
+    saveSettings();
+    io.emit("admin:updateSettings", serverSettings);
   });
 
   // Admin updates Theme Config
