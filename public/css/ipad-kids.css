@@ -1,3 +1,47 @@
+#kids-tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+#kids-tutorial-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#kids-tutorial-dialog {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+#kids-tutorial-mascot {
+  width: 160px;
+  height: auto;
+}
+
+#kids-tutorial-bubble {
+  background: white;
+  padding: 16px 20px;
+  border-radius: 14px;
+  max-width: 280px;
+}
+
+.kids-tutorial-highlight {
+  position: relative;
+  z-index: 1002;
+  box-shadow: 0 0 0 6px rgba(255, 255, 0, 0.8);
+  border-radius: 8px;
+}
+
 .hidden {
   display: none;
 }
