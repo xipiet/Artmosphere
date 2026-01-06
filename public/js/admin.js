@@ -3,14 +3,22 @@ const preview = document.getElementById('preview');
 const status = document.getElementById('status');
 const fadeToggle = document.getElementById('fadeToggle');
 
-// NEW: Speed controls
+// Speed controls
 const hopSpeedInput = document.getElementById('hopSpeedInput');
 const floatSpeedInput = document.getElementById('floatSpeedInput');
 
-// NEW: Movement selector, normalize toggle, max images
+// Movement selector, normalize toggle, max images
 const movementSelect = document.getElementById('movementSelect');  
 const normalizeToggle = document.getElementById('normalizeToggle'); 
 const maxImagesInput = document.getElementById('maxImagesInput');   
+
+// ⭐ NEW: Opacity controls
+const foregroundOpacityMax = document.getElementById('foregroundOpacityMax');
+const foregroundOpacityMin = document.getElementById('foregroundOpacityMin');
+const midgroundOpacityMax = document.getElementById('midgroundOpacityMax');
+const midgroundOpacityMin = document.getElementById('midgroundOpacityMin');
+const backgroundOpacityMax = document.getElementById('backgroundOpacityMax');
+const backgroundOpacityMin = document.getElementById('backgroundOpacityMin');
 
 const themeDropdown = document.getElementById('themeDropdown');
 const gallery = document.getElementById('gallery');
@@ -31,7 +39,20 @@ function showStatus(message, isError = false) {
 
 socket.on('app:init', (d) => {
     currentConfig = d.config || d;
-    currentSettings = d.settings || { fade: true, movement: "floating", maxImages: 30, normalizeSize: true, hopSpeed: 0.05, floatSpeed: 1 };
+    currentSettings = d.settings || { 
+        fade: true, 
+        movement: "floating", 
+        maxImages: 30, 
+        normalizeSize: true, 
+        hopSpeed: 0.05, 
+        floatSpeed: 1,
+        foregroundOpacityMax: 1.0,
+        foregroundOpacityMin: 0.70,
+        midgroundOpacityMax: 0.69,
+        midgroundOpacityMin: 0.40,
+        backgroundOpacityMax: 0.39,
+        backgroundOpacityMin: 0.10
+    };
 
     document.getElementById('currentThemeName').textContent = currentConfig.activeTheme || 'ocean';
 
@@ -40,9 +61,16 @@ socket.on('app:init', (d) => {
     normalizeToggle.checked = currentSettings.normalizeSize !== false;
     maxImagesInput.value = currentSettings.maxImages || 30;
 
-    // -------------------- CHANGE: initialize speed inputs --------------------
     hopSpeedInput.value = currentSettings.hopSpeed || 0.05;
     floatSpeedInput.value = currentSettings.floatSpeed || 1;
+
+    // ⭐ Initialize opacity controls
+    foregroundOpacityMax.value = currentSettings.foregroundOpacityMax || 1.0;
+    foregroundOpacityMin.value = currentSettings.foregroundOpacityMin || 0.70;
+    midgroundOpacityMax.value = currentSettings.midgroundOpacityMax || 0.69;
+    midgroundOpacityMin.value = currentSettings.midgroundOpacityMin || 0.40;
+    backgroundOpacityMax.value = currentSettings.backgroundOpacityMax || 0.39;
+    backgroundOpacityMin.value = currentSettings.backgroundOpacityMin || 0.10;
 
     updateThemeDropdown();
     const t = currentConfig.themes[currentConfig.activeTheme];
@@ -77,9 +105,16 @@ socket.on('admin:updateSettings', (settings) => {
     normalizeToggle.checked = settings.normalizeSize !== false;
     maxImagesInput.value = settings.maxImages || 30;
 
-    // -------------------- CHANGE: update speed inputs --------------------
     hopSpeedInput.value = settings.hopSpeed || 0.05;
     floatSpeedInput.value = settings.floatSpeed || 1;
+
+    // ⭐ Update opacity controls
+    foregroundOpacityMax.value = settings.foregroundOpacityMax || 1.0;
+    foregroundOpacityMin.value = settings.foregroundOpacityMin || 0.70;
+    midgroundOpacityMax.value = settings.midgroundOpacityMax || 0.69;
+    midgroundOpacityMin.value = settings.midgroundOpacityMin || 0.40;
+    backgroundOpacityMax.value = settings.backgroundOpacityMax || 0.39;
+    backgroundOpacityMin.value = settings.backgroundOpacityMin || 0.10;
 });
 
 socket.on('admin:updateGallery', (images) => {
@@ -138,9 +173,16 @@ movementSelect.addEventListener('change', updateSettings);
 normalizeToggle.addEventListener('change', updateSettings);
 maxImagesInput.addEventListener('input', updateSettings);
 
-// -------------------- CHANGE: listen to speed inputs --------------------
 hopSpeedInput.addEventListener('input', updateSettings);
 floatSpeedInput.addEventListener('input', updateSettings);
+
+// ⭐ NEW: Listen to opacity controls
+foregroundOpacityMax.addEventListener('input', updateSettings);
+foregroundOpacityMin.addEventListener('input', updateSettings);
+midgroundOpacityMax.addEventListener('input', updateSettings);
+midgroundOpacityMin.addEventListener('input', updateSettings);
+backgroundOpacityMax.addEventListener('input', updateSettings);
+backgroundOpacityMin.addEventListener('input', updateSettings);
 
 function updateSettings() {
     const newSettings = {
@@ -149,7 +191,14 @@ function updateSettings() {
         normalizeSize: normalizeToggle.checked,
         maxImages: Number(maxImagesInput.value) || 30,
         hopSpeed: Number(hopSpeedInput.value) || 0.05,
-        floatSpeed: Number(floatSpeedInput.value) || 1
+        floatSpeed: Number(floatSpeedInput.value) || 1,
+        // ⭐ NEW: Include opacity settings
+        foregroundOpacityMax: Number(foregroundOpacityMax.value) || 1.0,
+        foregroundOpacityMin: Number(foregroundOpacityMin.value) || 0.70,
+        midgroundOpacityMax: Number(midgroundOpacityMax.value) || 0.69,
+        midgroundOpacityMin: Number(midgroundOpacityMin.value) || 0.40,
+        backgroundOpacityMax: Number(backgroundOpacityMax.value) || 0.39,
+        backgroundOpacityMin: Number(backgroundOpacityMin.value) || 0.10
     };
     socket.emit("admin:updateSettings", newSettings);
 }

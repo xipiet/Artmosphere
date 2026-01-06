@@ -41,10 +41,9 @@
             </select>
           </div>
 
-          <!-- ⭐ NEW MOVEMENT SPEED CONTROLS -->
+          <!-- Movement Speed Controls -->
           <div class="setting-box">
             <label>Floating Speed</label>
-            <!-- how slow/fast images drift (0.1 – 10) -->
             <input 
               id="floatSpeedInput" 
               type="number" 
@@ -58,7 +57,6 @@
 
           <div class="setting-box">
             <label>Hopping Speed</label>
-            <!-- multiplier: 0.5 slow hops → 5 crazy fast hops -->
             <input 
               id="hopSpeedInput" 
               type="number" 
@@ -69,7 +67,6 @@
               style="width:80px;"
             >
           </div>
-          <!-- ⭐ END NEW MOVEMENT SPEED CONTROLS -->
 
           <!-- Existing: normalize toggle -->
           <div class="setting-box">
@@ -97,6 +94,108 @@
 
         </div>
       </div>
+
+      <!-- ⭐ NEW: OPACITY CONTROLS PANEL -->
+      <div class="zones-panel" style="margin-bottom: 20px;">
+        <h3>🎭 Layer Opacity Controls</h3>
+        <div style="display:flex; gap:30px; flex-wrap:wrap;">
+          
+          <!-- Foreground Opacity -->
+          <div style="flex: 1; min-width: 200px;">
+            <strong>🔴 Foreground (Vordergrund)</strong>
+            <div style="margin-top: 10px;">
+              <label style="display:block; margin-bottom:5px;">
+                Max Opacity (0-1):
+                <input 
+                  id="foregroundOpacityMax" 
+                  type="number" 
+                  value="1.0" 
+                  min="0" 
+                  max="1" 
+                  step="0.01"
+                  style="width:80px; margin-left:10px;"
+                >
+              </label>
+              <label style="display:block;">
+                Min Opacity (0-1):
+                <input 
+                  id="foregroundOpacityMin" 
+                  type="number" 
+                  value="0.70" 
+                  min="0" 
+                  max="1" 
+                  step="0.01"
+                  style="width:80px; margin-left:10px;"
+                >
+              </label>
+            </div>
+          </div>
+
+          <!-- Midground Opacity -->
+          <div style="flex: 1; min-width: 200px;">
+            <strong>🟡 Midground (Mittelgrund)</strong>
+            <div style="margin-top: 10px;">
+              <label style="display:block; margin-bottom:5px;">
+                Max Opacity (0-1):
+                <input 
+                  id="midgroundOpacityMax" 
+                  type="number" 
+                  value="0.69" 
+                  min="0" 
+                  max="1" 
+                  step="0.01"
+                  style="width:80px; margin-left:10px;"
+                >
+              </label>
+              <label style="display:block;">
+                Min Opacity (0-1):
+                <input 
+                  id="midgroundOpacityMin" 
+                  type="number" 
+                  value="0.40" 
+                  min="0" 
+                  max="1" 
+                  step="0.01"
+                  style="width:80px; margin-left:10px;"
+                >
+              </label>
+            </div>
+          </div>
+
+          <!-- Background Opacity -->
+          <div style="flex: 1; min-width: 200px;">
+            <strong>🔵 Background (Hintergrund)</strong>
+            <div style="margin-top: 10px;">
+              <label style="display:block; margin-bottom:5px;">
+                Max Opacity (0-1):
+                <input 
+                  id="backgroundOpacityMax" 
+                  type="number" 
+                  value="0.39" 
+                  min="0" 
+                  max="1" 
+                  step="0.01"
+                  style="width:80px; margin-left:10px;"
+                >
+              </label>
+              <label style="display:block;">
+                Min Opacity (0-1):
+                <input 
+                  id="backgroundOpacityMin" 
+                  type="number" 
+                  value="0.10" 
+                  min="0" 
+                  max="1" 
+                  step="0.01"
+                  style="width:80px; margin-left:10px;"
+                >
+              </label>
+            </div>
+          </div>
+
+        </div>
+      </div>
+      <!-- ⭐ END OPACITY CONTROLS PANEL -->
 
       <!-- ZONE EDITOR -->
       <div class="zones-panel">
