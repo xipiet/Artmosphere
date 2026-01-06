@@ -6,6 +6,7 @@ const drawView = document.getElementById('drawView');
 const bgCanvas = document.getElementById('bgCanvas');
 const bgCtx = bgCanvas.getContext('2d');
 const zoneEls = [document.getElementById('zone0'), document.getElementById('zone1'), document.getElementById('zone2')];
+const toggleBtn = document.getElementById("kidsToggle"); 
 
 // Drawing view elements
 const canvas = document.getElementById('drawArea');
@@ -21,33 +22,6 @@ let eraseMode = false;
 let selectedZone = null;
 
 let initialized = false;
-
-// KIDS MODE HANDLING
-socket.on("kidsMode:update", (d) => { 
-    const newMode = d.kidsMode; 
-    if (!initialized) { initialized = true; 
-        kidsMode = newMode; 
-        return; 
-    } 
-    if (newMode && window.location.pathname !== "/ipad-kids") { 
-        window.location.href = "/ipad-kids"; 
-        return; 
-    } 
-    if (!newMode && window.location.pathname !== "/ipad") { 
-        window.location.href = "/ipad"; 
-        return; 
-    } 
-    
-    kidsMode = newMode; 
-});
-
-const toggleBtn = document.getElementById("kidsToggle"); 
-if (toggleBtn) { 
-    toggleBtn.addEventListener("click", () => { 
-        kidsMode = !kidsMode; 
-        socket.emit("kidsMode:set", kidsMode); 
-    }); 
-}
 
 // THEME DISPLAY
 let bgImg = new Image();
@@ -209,5 +183,63 @@ document.getElementById("screenshot").addEventListener("click", () => {
     link.download = `drawing_${Date.now()}.png`;
     link.click();
 });
+
+// KIDS MODE (wird wie eine Art Modul/Injected UI geladen)
+async function loadKidsUI() {
+    const container = document.getElementById("kids-ui");
+
+    if (!container) {
+        console.error("kids-ui container not found");
+        return;
+    }
+
+    if (container.dataset.loaded === "true") return;
+
+    // HTML laden
+    const res = await fetch("/ipad-kids.html");
+    container.innerHTML = await res.text();
+
+    // CSS laden
+    if (!document.getElementById("kids-css")) {
+        const link = document.createElement("link");
+        link.id = "kids-css";
+        link.rel = "stylesheet";
+        link.href = "/css/ipad-kids.css";
+        document.head.appendChild(link);
+    }
+
+    // JS laden
+    const script = document.createElement("script");
+    script.src = "/js/ipad-kids.js";
+    script.defer = true;
+    document.body.appendChild(script);
+
+    container.dataset.loaded = "true";
+}
+
+socket.on("kidsMode:update", async (d) => { 
+    const newMode = d.kidsMode; 
+    if (!initialized) { initialized = true; 
+        kidsMode = newMode; 
+        return; 
+    } 
+    if (newMode) {
+        await loadKidsUI();
+        document.getElementById("kids-ui").style.display = "block";
+    } 
+    
+    kidsMode = newMode;
+    
+    if (!kidsMode) { 
+        document.getElementById("kids-ui").style.display = "none"; 
+    }
+});
+
+if (toggleBtn) { 
+    toggleBtn.addEventListener("click", () => { 
+        kidsMode = !kidsMode; 
+        socket.emit("kidsMode:set", kidsMode); 
+    }); 
+}
 
 setTimeout(resizeBg, 120);
