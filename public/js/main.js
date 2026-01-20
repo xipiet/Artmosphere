@@ -7,7 +7,7 @@ const TARGET_AREA = 50000; // pixels² for normalization
 const MAX_PAINTING_SIZE = 250; // max width/height in pixels
 
 let serverSettings = { 
-    fade: true, 
+    galleryMode: 'maxPaintings',
     normalizeSize: true,
     foregroundPaintings: 10,
     midgroundPaintings: 10,
@@ -33,7 +33,8 @@ class FloatingImage {
         this.id = id;
         this.img = img;
         this.zone = zone;
-        this.alpha = 1;
+        this.layerAlpha = 1;
+        this.fadeAlpha = 1;
         this.isFading = false;
         this.currentLayer = 'background'; // Will be set by redistributeLayers()
         
@@ -63,24 +64,25 @@ class FloatingImage {
             this.vy *= -1;
         }
 
-        // Fade: either in fade mode OR if explicitly marked to fade
-        if (serverSettings.fade || this.isFading) {
-            const prevAlpha = this.alpha;
-            this.alpha = Math.max(0, this.alpha - 0.0005);
+        // Fade: either in gallery fade mode OR if explicitly marked to fade
+        const shouldFadeAll = serverSettings.galleryMode === 'fade';
+        if (shouldFadeAll || this.isFading) {
+            const prevFade = this.fadeAlpha;
+            this.fadeAlpha = Math.max(0, this.fadeAlpha - 0.0005);
             
             // Notify server when image is fully faded
-            if (prevAlpha > 0 && this.alpha === 0) {
+            if (prevFade > 0 && this.fadeAlpha === 0) {
                 socket.emit('image:faded', this.id);
             }
         }
     }
 
     isFaded() {
-        return this.alpha === 0;
+        return this.fadeAlpha === 0;
     }
 
     draw() {
-        ctx.globalAlpha = this.alpha;
+        ctx.globalAlpha = this.layerAlpha * this.fadeAlpha;
         ctx.drawImage(this.img, this.x, this.y);
         ctx.globalAlpha = 1;
     }
@@ -142,13 +144,13 @@ function animate() {
 
             // Calculate opacity for this image within its layer
             if (group.length === 1) {
-                img.alpha = opacityRange.max;
+                img.layerAlpha = opacityRange.max;
             } else {
                 const progress = (localIndex + 1) / group.length;
-                img.alpha = opacityRange.min + (opacityRange.max - opacityRange.min) * progress;
+                img.layerAlpha = opacityRange.min + (opacityRange.max - opacityRange.min) * progress;
             }
 
-            if (img.alpha > 0) img.draw();
+            if (img.fadeAlpha > 0) img.draw();
 
             // Mark faded images for removal
             if (img.isFaded()) {
@@ -187,7 +189,7 @@ socket.on("app:init", (d) => {
     const theme = config.themes[themeName];
     themeConfig = theme;
 
-    statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.fade ? 'ON' : 'OFF'}`;
+    statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
 
     // Hintergrund laden
     canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.image)}")`;
@@ -200,7 +202,7 @@ socket.on("config:changed", (config) => {
     themeConfig = theme;
     activeImages.length = 0; // Clear active images
 
-    statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.fade ? 'ON' : 'OFF'}`;
+    statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
 
     // Update background
     canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.image)}")`;
@@ -209,7 +211,7 @@ socket.on("config:changed", (config) => {
 // SETTINGS UPDATE
 socket.on("admin:updateSettings", (settings) => {
     serverSettings = Object.assign({}, serverSettings, settings);
-    statusEl.textContent = `theme: ${themeConfig ? themeConfig.id : '?'} | fade: ${serverSettings.fade ? 'ON' : 'OFF'}`;
+    statusEl.textContent = `theme: ${themeConfig ? themeConfig.id : '?'} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
 });
 
 // Bild kommt an, mit Zone-ID und eindeutiger ID
