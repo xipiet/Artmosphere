@@ -192,12 +192,13 @@ document.getElementById("send").addEventListener("click", () => {
     window.location.href = "/ipad-endscreen";
 });
 
-document.getElementById("screenshot").addEventListener("click", () => {
-    const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
-    link.download = `drawing_${Date.now()}.png`;
-    link.click();
-});
+// Screenshot (disabled in HTML)
+// document.getElementById("screenshot").addEventListener("click", () => {
+//     const link = document.createElement("a");
+//     link.href = canvas.toDataURL("image/png");
+//     link.download = `drawing_${Date.now()}.png`;
+//     link.click();
+// });
 
 // HELP MODAL
 const helpModal = document.getElementById("helpModal");
