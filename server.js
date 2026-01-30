@@ -179,6 +179,11 @@ io.on("connection", (socket) => {
     socket.emit("admin:updateGallery", activeImages);
   });
 
+  // Send all current images to main canvas on request (reconnect/refresh)
+  socket.on("main:requestAllImages", () => {
+    socket.emit("main:allImages", { images: activeImages });
+  });
+
   // Admin updates settings
   socket.on("admin:updateSettings", (newSettings) => {
     serverSettings.galleryMode = newSettings.galleryMode;

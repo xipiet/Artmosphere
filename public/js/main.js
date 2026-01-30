@@ -188,11 +188,15 @@ socket.on("app:init", (d) => {
     const themeName = config.activeTheme;
     const theme = config.themes[themeName];
     themeConfig = theme;
+    activeImages.length = 0; // Clear previous images
 
     statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
 
     // Hintergrund laden
     canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.image)}")`;
+    
+    // Request all current images from server
+    socket.emit("main:requestAllImages");
 });
 
 // CONFIG CHANGED (when admin switches theme)
@@ -281,6 +285,50 @@ if (img) {
 } else {
     console.log("Image not found for fade:", imageId);
 }
+});
+
+// Receive all current images from server (on reconnect/refresh)
+socket.on("main:allImages", ({ images }) => {
+    activeImages.length = 0; // Clear current array
+    images.forEach(imageData => {
+        const img = new Image();
+        img.onload = () => {
+            const zone = themeConfig.zones.find(z => z.id === imageData.zoneId);
+            
+            let finalImg = img;
+            
+            // Normalize size if enabled
+            if (serverSettings.normalizeSize) {
+                const aspectRatio = img.width / img.height;
+                let newWidth, newHeight;
+                
+                if (aspectRatio > 1) {
+                    newWidth = MAX_PAINTING_SIZE;
+                    newHeight = MAX_PAINTING_SIZE / aspectRatio;
+                } else {
+                    newHeight = MAX_PAINTING_SIZE;
+                    newWidth = MAX_PAINTING_SIZE * aspectRatio;
+                }
+                
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = MAX_PAINTING_SIZE;
+                tempCanvas.height = MAX_PAINTING_SIZE;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                tempCtx.clearRect(0, 0, MAX_PAINTING_SIZE, MAX_PAINTING_SIZE);
+                
+                const x = (MAX_PAINTING_SIZE - newWidth) / 2;
+                const y = (MAX_PAINTING_SIZE - newHeight) / 2;
+                tempCtx.drawImage(img, x, y, newWidth, newHeight);
+                
+                finalImg = new Image();
+                finalImg.src = tempCanvas.toDataURL();
+            }
+            
+            activeImages.push(new FloatingImage(imageData.id, finalImg, zone));
+        };
+        img.src = imageData.dataUrl;
+    });
 });
 
 // Screenshot
