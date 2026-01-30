@@ -29,15 +29,15 @@ function drawBgImage() {
     const scale = Math.max(cw/iw, ch/ih);
     const w = iw * scale, h = ih * scale;
     const x = (cw - w)/2, y = (ch - h)/2;
-    bgCtx.clearRect(0,0,cw,ch);
+    bgCtx.clearRect(0, 0, cw, ch);
     bgCtx.drawImage(bgImg, x, y, w, h);
 }
 
 function resizeBg() {
-    const vp = document.getElementById('viewport');
-    const rect = vp.getBoundingClientRect();
-    bgCanvas.width = rect.width;
-    bgCanvas.height = Math.max(320, Math.round(rect.width * 0.56));
+    // Set canvas resolution to full viewport
+    bgCanvas.width = window.innerWidth;
+    bgCanvas.height = window.innerHeight;
+    
     applyZoneLayout();
     if (theme) drawBgImage();
 }
