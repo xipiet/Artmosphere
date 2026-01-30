@@ -331,10 +331,10 @@ socket.on("main:allImages", ({ images }) => {
     });
 });
 
-// Screenshot
-document.getElementById('screenshot').addEventListener('click', () => {
-const link = document.createElement('a');
-link.href = canvas.toDataURL('image/png');
-link.download = `main_${Date.now()}.png`;
-link.click();
-});
+// Screenshot (disabled in HTML)
+// document.getElementById('screenshot').addEventListener('click', () => {
+// const link = document.createElement('a');
+// link.href = canvas.toDataURL('image/png');
+// link.download = `main_${Date.now()}.png`;
+// link.click();
+// });
