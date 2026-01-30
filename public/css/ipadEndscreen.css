@@ -105,6 +105,8 @@ main p {
     color: #c060ff;
     text-decoration: none;
     font-weight: bold;
+    pointer-events: none;
+    cursor: default;
 }
 
 
