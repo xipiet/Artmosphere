@@ -7,9 +7,7 @@
 - git clone <br/>
 - cd Artmosphere <br/>
 - Node & npm installieren (https://nodejs.org/en/download) <br/>
-- npm init -y <br/>
-- npm install <br/>
-(sollte die benutzten packages automatisch installieren, ansonsten manuell)  <br/>
+- npm install express socket.io<br/>
 - node server.js <br/>
 
 ## Update
