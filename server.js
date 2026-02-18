@@ -97,6 +97,10 @@ app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
 
+app.get("/kritiker", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "kritiker.html"));
+});
+
 // ----------------------------------
 // Theme Image Route
 // ----------------------------------
@@ -219,6 +223,55 @@ io.on("connection", (socket) => {
     if (index !== -1) {
       activeImages.splice(index, 1);
       console.log(`Image ${imageId} faded out. Remaining: ${activeImages.length}`);
+      io.emit("admin:updateGallery", activeImages);
+    }
+  });
+
+  // Kritiker rates an image
+  socket.on("kritiker:rateImage", (ratingData) => {
+    const { imageId, rating } = ratingData;
+    const imageIndex = activeImages.findIndex(img => img.id === imageId);
+    
+    if (imageIndex !== -1) {
+      const image = activeImages[imageIndex];
+      
+      if (rating === 'like') {
+        // Move to front of array (newest position = foreground)
+        activeImages.splice(imageIndex, 1);
+        activeImages.push(image);
+        console.log(`Image ${imageId} liked - moved to foreground`);
+      } else if (rating === 'dislike') {
+        // Move one position towards the start (further back)
+        // Calculate current position and move it back by 1
+        const currentPosition = activeImages.length - 1 - imageIndex;
+        
+        // Remove from current position
+        activeImages.splice(imageIndex, 1);
+        
+        // Calculate new position (move back in the queue)
+        
+        const fgCount = serverSettings.foregroundPaintings || 10;
+        const mgCount = serverSettings.midgroundPaintings || 10;
+        
+        if (currentPosition < fgCount) {
+          // Currently in foreground
+          const newIndex = activeImages.length - fgCount;
+          activeImages.splice(Math.max(0, newIndex), 0, image);
+        } else if (currentPosition < fgCount + mgCount) {
+          // Currently in midground
+          const newIndex = activeImages.length - fgCount - mgCount;
+          activeImages.splice(Math.max(0, newIndex), 0, image);
+        } else {
+          // Currently in background
+          console.log(`Image ${imageId} disliked and removed from background`);
+          io.emit("admin:removeImageFromMain", imageId);
+          io.emit("admin:updateGallery", activeImages);
+          return;
+        }
+        
+        console.log(`Image ${imageId} disliked - moved one layer back`);
+      }
+      
       io.emit("admin:updateGallery", activeImages);
     }
   });

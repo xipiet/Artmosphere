@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kritiker - Artmosphere</title>
+
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family: 'Poppins', sans-serif;
+        color: white;
+      }
+
+      video {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        z-index: -1;
+      }
+
+      .content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        text-align: center;
+      }
+
+      .content h1 {
+        font-size: 3rem;
+        margin: 0;
+      }
+
+      .content a {
+        color: white;
+        text-decoration: none;
+        margin-top: 30px;
+        padding: 15px 30px;
+        border: 2px solid white;
+        border-radius: 5px;
+        transition: all 0.3s ease;
+      }
+
+      .content a:hover {
+        background-color: white;
+        color: #000;
+      }
+
+      nav {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 10;
+      }
+
+      nav .logo img {
+        width: 140px;
+        height: auto;
+      }
+
+      .title-header {
+        position: fixed;
+        top: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+        color: white;
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-align: center;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      }
+
+      .painting-window {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 100;
+        background: white;
+        border: 3px solid white;
+        border-radius: 10px;
+        padding: 20px;
+        width: 64vh;
+        height: 64vh;
+        box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+      }
+
+      .painting-window img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .painting-info {
+        color: white;
+        text-align: center;
+        margin-top: 15px;
+        font-size: 0.9rem;
+      }
+
+      .loading {
+        color: white;
+        font-size: 1.5rem;
+      }
+
+      .button-container {
+        position: fixed;
+        bottom: 40px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 100;
+        display: flex;
+        gap: 20px;
+      }
+
+      .rating-button {
+        padding: 15px 40px;
+        font-size: 1.1rem;
+        font-weight: bold;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        color: white;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      }
+
+      .like-button {
+        background-color: #4CAF50;
+      }
+
+      .like-button:hover {
+        background-color: #45a049;
+        transform: scale(1.05);
+      }
+
+      .dislike-button {
+        background-color: #f44336;
+      }
+
+      .dislike-button:hover {
+        background-color: #da190b;
+        transform: scale(1.05);
+      }
+    </style>
+  </head>
+
+  <body>
+    <video autoplay muted loop>
+      <source src="/media/background.mp4" type="video/mp4">
+      Ihr Browser unterstützt das Video-Tag nicht.
+    </video>
+
+    <nav>
+      <div class="logo">
+        <img src="/media/favicon.png" alt="Artmosphere Logo">
+      </div>
+    </nav>
+
+    <div class="title-header">
+      Wie gefällt dir dieses Kunstwerk?
+    </div>
+
+    <div class="painting-window" id="paintingWindow">
+      <div class="loading">Lade Kunstwerk...</div>
+    </div>
+
+    <div class="content">
+    </div>
+
+    <div class="button-container">
+      <button class="rating-button like-button" id="likeBtn">👍 Gefällt mir</button>
+      <button class="rating-button dislike-button" id="dislikeBtn">👎 Gefällt mir nicht</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      let activeImages = [];
+      let currentDisplayedImageId = null;
+
+      socket.on('connect', () => {
+        console.log('Connected to server');
+        // Request current gallery
+        socket.emit('admin:requestGallery');
+      });
+
+      socket.on('admin:updateGallery', (images) => {
+        activeImages = images;
+        displayRandomPainting();
+      });
+
+      socket.on('newImage', (imageData) => {
+        activeImages.push(imageData);
+        displayRandomPainting();
+      });
+
+      socket.on('admin:removeImageFromMain', (imageId) => {
+        activeImages = activeImages.filter(img => img.id !== imageId);
+        displayRandomPainting();
+      });
+
+      function displayRandomPainting() {
+        const paintingWindow = document.getElementById('paintingWindow');
+        
+        if (activeImages.length === 0) {
+          paintingWindow.innerHTML = '<div class="loading">Keine Kunstwerke vorhanden</div>';
+          currentDisplayedImageId = null;
+          return;
+        }
+
+        const randomIndex = Math.floor(Math.random() * activeImages.length);
+        const randomPainting = activeImages[randomIndex];
+        currentDisplayedImageId = randomPainting.id;
+
+        paintingWindow.innerHTML = `
+          <img src="${randomPainting.dataUrl}" alt="Kunstwerk">
+        `;
+      }
+
+      document.getElementById('likeBtn').addEventListener('click', () => {
+        if (currentDisplayedImageId) {
+          socket.emit('kritiker:rateImage', {
+            imageId: currentDisplayedImageId,
+            rating: 'like'
+          });
+          displayRandomPainting();
+        }
+      });
+
+      document.getElementById('dislikeBtn').addEventListener('click', () => {
+        if (currentDisplayedImageId) {
+          socket.emit('kritiker:rateImage', {
+            imageId: currentDisplayedImageId,
+            rating: 'dislike'
+          });
+          displayRandomPainting();
+        }
+      });
+    </script>
