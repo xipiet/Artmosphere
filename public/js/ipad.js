@@ -226,7 +226,38 @@ helpModal.addEventListener("click", (e) => {
     }
 });
 
-// KIDS MODE (wird wie eine Art Modul/Injected UI geladen)
+// TOGGLE BUTTON (wird wie eine Art Modul geladen)
+async function toggleButton() {
+    const container = document.getElementById("toggleButton");
+    if (!container) {
+        console.error("toggle button container not found");
+        return;
+    }
+    if (container.dataset.loaded === "true") return;
+
+    // HTML laden
+    const res = await fetch("/components/toggleButton.html");
+    container.innerHTML = await res.text();
+
+    // CSS laden
+    if (!document.getElementById("toggleButton-css")) {
+        const link = document.createElement("link");
+        link.id = "toggleButton-css";
+        link.rel = "stylesheet";
+        link.href = "/components/toggleButton.css";
+        document.head.appendChild(link);
+    }
+
+    // JS laden
+    const script = document.createElement("script");
+    script.src = "/components/toggleButton.js";
+    script.defer = true;
+    document.body.appendChild(script);
+
+    container.dataset.loaded = "true";
+}
+
+// KIDS MODE (wird wie eine Art Modul geladen)
 async function loadKidsUI() {
     const container = document.getElementById("kids-ui");
 
@@ -254,6 +285,7 @@ async function loadKidsUI() {
     const script = document.createElement("script");
     script.src = "/js/ipad-kids.js";
     script.defer = true;
+    script.addEventListener("load", () => { script.dataset.ready = "true"; });
     document.body.appendChild(script);
 
     container.dataset.loaded = "true";
@@ -261,20 +293,33 @@ async function loadKidsUI() {
 
 socket.on("kidsMode:update", async (d) => { 
     const newMode = d.kidsMode; 
-    if (!initialized) { initialized = true; 
+    if (!initialized) { 
+        initialized = true; 
         kidsMode = newMode; 
         return; 
     } 
+    
     if (newMode) {
         await loadKidsUI();
         document.getElementById("kids-ui").style.display = "block";
-    } 
+        
+        await new Promise((resolve) => {
+            const script = document.querySelector('script[src="/js/ipad-kids.js"]');
+            if (script && script.dataset.ready === "true") {
+                resolve();
+            } else {
+                script.addEventListener("load", resolve, { once: true });
+            }
+        });
+
+        kidsTutorial.step = 0;
+        showCurrentStep();
+        document.getElementById("kids-ui").style.display = "block";
+    } else {
+        document.getElementById("kids-ui").style.display = "none";
+    }
     
     kidsMode = newMode;
-    
-    if (!kidsMode) { 
-        document.getElementById("kids-ui").style.display = "none"; 
-    }
 });
 
 if (toggleBtn) { 
@@ -285,3 +330,4 @@ if (toggleBtn) {
 }
 
 setTimeout(resizeBg, 120);
+toggleButton();

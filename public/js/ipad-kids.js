@@ -7,8 +7,8 @@ const kidsTutorial = {
   step: 0,
   steps: [
     {
-      text: "Hey, ich bin Finn 🦈\nLass uns etwas zeichnen!",
-      mascot: "/media/shark-mascot-1.png"
+      text: "Hey, ich bin Momo.\nLass uns etwas zeichnen!",
+      mascot: "/media/monkey-mascot.png"
     },
     // {
     //   text: "Super! Wähle jetzt einen Bereich.",
@@ -90,7 +90,7 @@ function hideOverlay() {
 function endTutorial() {
     clearHighlight();
     hideOverlay();
-    // socket.emit("kidsMode:set", false);
+    socket.emit("kidsMode:set", false);
 }
 
 showCurrentStep();
