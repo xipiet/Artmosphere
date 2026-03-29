@@ -32,15 +32,15 @@ function drawBgImage() {
     const scale = Math.max(cw/iw, ch/ih);
     const w = iw * scale, h = ih * scale;
     const x = (cw - w)/2, y = (ch - h)/2;
-    bgCtx.clearRect(0,0,cw,ch);
+    bgCtx.clearRect(0, 0, cw, ch);
     bgCtx.drawImage(bgImg, x, y, w, h);
 }
 
 function resizeBg() {
-    const vp = document.getElementById('viewport');
-    const rect = vp.getBoundingClientRect();
-    bgCanvas.width = rect.width;
-    bgCanvas.height = Math.max(320, Math.round(rect.width * 0.56));
+    // Set canvas resolution to full viewport
+    bgCanvas.width = window.innerWidth;
+    bgCanvas.height = window.innerHeight;
+    
     applyZoneLayout();
     if (theme) drawBgImage();
 }
@@ -67,6 +67,7 @@ socket.on('app:init', (d) => {
     config = d.config || d;
     activeThemeName = config.activeTheme;
     theme = config.themes[activeThemeName] || null;
+    updateThemeNameInHelp();
     if (theme) {
         loadBgAndApply();
     } else {
@@ -78,8 +79,25 @@ socket.on('config:changed', (newConfig) => {
     config = newConfig;
     activeThemeName = config.activeTheme;
     theme = config.themes[activeThemeName] || null;
+    updateThemeNameInHelp();
     if (theme) loadBgAndApply();
 });
+
+function updateThemeNameInHelp() {
+    if (!activeThemeName) return;
+    const themeDisplayNames = {
+        'ocean': 'Unterwasserwelt',
+        'jungle': 'Dschungelwelt',
+        'forest': 'Waldwelt',
+        'desert': 'Wüstenwelt',
+        'space': 'Weltraum'
+    };
+    const displayName = themeDisplayNames[activeThemeName] || activeThemeName;
+    const themeNameEl = document.getElementById('themeName');
+    if (themeNameEl) {
+        themeNameEl.textContent = displayName;
+    }
+}
 
 function loadBgAndApply() {
     if (!theme) return;
@@ -182,6 +200,30 @@ document.getElementById("screenshot").addEventListener("click", () => {
     link.href = canvas.toDataURL("image/png");
     link.download = `drawing_${Date.now()}.png`;
     link.click();
+});
+
+// HELP MODAL
+const helpModal = document.getElementById("helpModal");
+const helpBtnTheme = document.getElementById("helpBtnTheme");
+const helpBtnDraw = document.getElementById("helpBtnDraw");
+const modalClose = document.querySelector(".modal-close");
+
+function openHelpModal() {
+    helpModal.classList.add("show");
+}
+
+function closeHelpModal() {
+    helpModal.classList.remove("show");
+}
+
+helpBtnTheme.addEventListener("click", openHelpModal);
+helpBtnDraw.addEventListener("click", openHelpModal);
+modalClose.addEventListener("click", closeHelpModal);
+
+helpModal.addEventListener("click", (e) => {
+    if (e.target === helpModal) {
+        closeHelpModal();
+    }
 });
 
 // KIDS MODE (wird wie eine Art Modul/Injected UI geladen)

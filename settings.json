@@ -1,0 +1,15 @@
+{
+  "galleryMode": "maxPaintings",
+  "maxImages": 12,
+  "maxImagesMode": "fade",
+  "normalizeSize": true,
+  "foregroundPaintings": 4,
+  "midgroundPaintings": 4,
+  "backgroundPaintings": 4,
+  "foregroundOpacityMax": 1,
+  "foregroundOpacityMin": 0.7,
+  "midgroundOpacityMax": 0.69,
+  "midgroundOpacityMin": 0.4,
+  "backgroundOpacityMax": 0.39,
+  "backgroundOpacityMin": 0.1
+}

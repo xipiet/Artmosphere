@@ -7,16 +7,16 @@
         {
           "id": "top",
           "yStartPct": 0,
-          "yEndPct": 30
+          "yEndPct": 40
         },
         {
           "id": "middle",
-          "yStartPct": 30,
-          "yEndPct": 70
+          "yStartPct": 40,
+          "yEndPct": 60
         },
         {
           "id": "bottom",
-          "yStartPct": 70,
+          "yStartPct": 60,
           "yEndPct": 100
         }
       ]
@@ -27,11 +27,11 @@
         {
           "id": "top",
           "yStartPct": 0,
-          "yEndPct": 60
+          "yEndPct": 40
         },
         {
           "id": "middle",
-          "yStartPct": 60,
+          "yStartPct": 40,
           "yEndPct": 70
         },
         {

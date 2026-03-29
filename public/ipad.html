@@ -12,6 +12,7 @@
 <body> 
   <!-- THEME VIEW (Zone Selection) -->
   <div id="themeView">
+      <button id="helpBtnTheme" class="help-btn">?</button>
     <div id="viewport"> <canvas id="bgCanvas"></canvas>
       <div id="zone0" class="zone-overlay zone-0" style="top:0; height:33%;"></div>
       <div id="zone1" class="zone-overlay zone-1" style="top:33%; height:34%;"></div>
@@ -21,6 +22,7 @@
   
   <!-- DRAWING VIEW -->
   <div id="drawView">
+      <button id="helpBtnDraw" class="help-btn">?</button>
     <div id="toolbar">
       <div id="colors">
         <div class="color-btn" data-color="#000000" style="background:#000000"></div>
@@ -46,6 +48,18 @@
       <button id="send">Send</button> 
       <button id="screenshot">Screenshot Draw</button> 
       <button id="kidsToggle">Kids Mode</button> 
+    </div>
+
+    <!-- HELP MODAL -->
+    <div id="helpModal" class="modal">
+      <div class="modal-content">
+        <button class="modal-close">&times;</button>
+        <h2>Wie funktioniert es?</h2>
+        <p>Du befindest dich jetzt in der kreativen Zone unserer Atmosphere Installation. Das Thema dieses Raums ist eine <span id="themeName">Unterwasserwelt</span>, die aus verschiedenen Bereichen besteht.</p>
+        <p>Wähle zuerst den Bereich, in dem dein Kunstwerk erscheinen soll. Danach gelangst du zu einer Zeichenfläche, auf der du dein eigenes Objekt malen kannst – ganz so, wie du es dir vorstellen würdest.</p>
+        <p>Wenn du fertig bist, schickst du deine Zeichnung ab. Sie wird anschließend in den echten Raum projiziert und als Teil des digitalen, animierten 3D-Objekts zum Leben erweckt.</p>
+        <p>Viel Spaß dabei, deiner Fantasie freien Lauf zu lassen!</p>
+      </div>
     </div>
   </div>
 
