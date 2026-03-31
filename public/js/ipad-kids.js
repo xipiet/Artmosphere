@@ -7,13 +7,14 @@ const kidsTutorial = {
   step: 0,
   steps: [
     {
-      text: "Hey, ich bin Momo.\nLass uns etwas zeichnen!",
+      text: "Hey, ich bin Momo. <br>Lass uns etwas zeichnen!",
       mascot: "/media/monkey-mascot.png"
     },
-    // {
-    //   text: "Super! Wähle jetzt einen Bereich.",
-    //   highlight: ".zone-overlay"
-    // },
+    {
+      text: "Super! Wähle jetzt einen Bereich.",
+      mascot: "/media/monkey-mascot.png",
+      highlight: ".zone-overlay"
+    },
     // {
     //   text: "Jetzt kannst du malen 🎨",
     //   highlight: "#drawArea"
@@ -27,10 +28,10 @@ const kidsTutorial = {
 
 function showCurrentStep() {
   const step = kidsTutorial.steps[kidsTutorial.step];
-  console.log("Showing step:", step);                           // DEBUG
+  console.log("Showing tutorial step:", step);                           // DEBUG
   if (!step) return;
 
-  kidsTextElem.textContent = step.text;
+  kidsTextElem.innerHTML = step.text;
 
   setMascot(step.mascot);
 

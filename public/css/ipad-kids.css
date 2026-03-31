@@ -6,7 +6,6 @@
   align-items: center;
   justify-content: center;
   z-index: 1001;
-
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.4s ease;
@@ -30,9 +29,13 @@
 
 #kids-tutorial-bubble {
   background: white;
-  padding: 16px 20px;
+  padding: 24px;
   border-radius: 14px;
   max-width: 280px;
+}
+
+#kids-tutorial-text {
+  margin-top: 0;
 }
 
 .kids-tutorial-highlight {

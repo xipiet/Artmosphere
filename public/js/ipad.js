@@ -6,7 +6,6 @@ const drawView = document.getElementById('drawView');
 const bgCanvas = document.getElementById('bgCanvas');
 const bgCtx = bgCanvas.getContext('2d');
 const zoneEls = [document.getElementById('zone0'), document.getElementById('zone1'), document.getElementById('zone2')];
-const toggleBtn = document.getElementById("kidsToggle"); 
 
 // Drawing view elements
 const canvas = document.getElementById('drawArea');
@@ -226,36 +225,12 @@ helpModal.addEventListener("click", (e) => {
     }
 });
 
-// TOGGLE BUTTON (wird wie eine Art Modul geladen)
-async function toggleButton() {
-    const container = document.getElementById("toggleButton");
-    if (!container) {
-        console.error("toggle button container not found");
-        return;
-    }
-    if (container.dataset.loaded === "true") return;
-
-    // HTML laden
-    const res = await fetch("/components/toggleButton.html");
-    container.innerHTML = await res.text();
-
-    // CSS laden
-    if (!document.getElementById("toggleButton-css")) {
-        const link = document.createElement("link");
-        link.id = "toggleButton-css";
-        link.rel = "stylesheet";
-        link.href = "/components/toggleButton.css";
-        document.head.appendChild(link);
-    }
-
-    // JS laden
-    const script = document.createElement("script");
-    script.src = "/components/toggleButton.js";
-    script.defer = true;
-    document.body.appendChild(script);
-
-    container.dataset.loaded = "true";
-}
+// KIDS MODE TOGGLE
+const checkbox = document.querySelector("#toggle-button-1 .toggle-checkbox");
+checkbox.addEventListener("change", () => {
+    const kidsMode = checkbox.checked;
+    socket.emit("kidsMode:set", kidsMode);
+});
 
 // KIDS MODE (wird wie eine Art Modul geladen)
 async function loadKidsUI() {
@@ -293,6 +268,8 @@ async function loadKidsUI() {
 
 socket.on("kidsMode:update", async (d) => { 
     const newMode = d.kidsMode; 
+    checkbox.checked = newMode;
+
     if (!initialized) { 
         initialized = true; 
         kidsMode = newMode; 
@@ -322,12 +299,4 @@ socket.on("kidsMode:update", async (d) => {
     kidsMode = newMode;
 });
 
-if (toggleBtn) { 
-    toggleBtn.addEventListener("click", () => { 
-        kidsMode = !kidsMode; 
-        socket.emit("kidsMode:set", kidsMode); 
-    }); 
-}
-
 setTimeout(resizeBg, 120);
-toggleButton();
