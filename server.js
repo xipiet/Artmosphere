@@ -89,6 +89,10 @@ app.get("/ipad", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "ipad.html"));
 });
 
+app.get("/ipad2", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "ipad2.html"));
+});
+
 app.get("/ipad-endscreen", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "ipadEndscreen.html"));
 });
@@ -137,10 +141,19 @@ io.on("connection", (socket) => {
     settings: serverSettings
   });
 
-  // iPad sends image + zone
-  socket.on("sendImage", ({ dataUrl, zoneId }) => {
+  // iPad sends image + zone (ipad.html) OR image + movementType (ipad2.html)
+  socket.on("sendImage", ({ dataUrl, zoneId, movementType }) => {
     const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const imageData = { id: imageId, dataUrl, zoneId, timestamp: Date.now() };
+    
+    // Support both old (zoneId) and new (movementType) systems
+    let imageData;
+    if (movementType) {
+      // ipad2 system: category-based movement
+      imageData = { id: imageId, dataUrl, movementType, timestamp: Date.now() };
+    } else {
+      // ipad system: zone-based movement
+      imageData = { id: imageId, dataUrl, zoneId, timestamp: Date.now() };
+    }
     
     // Only enforce max images limit in "maxPaintings" mode
     if (serverSettings.galleryMode === "maxPaintings" && activeImages.length >= serverSettings.maxImages) {
