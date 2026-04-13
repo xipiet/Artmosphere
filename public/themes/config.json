@@ -40,6 +40,26 @@
           "yEndPct": 100
         }
       ]
+    },
+    "stadt": {
+      "image": "stadt.png",
+      "zones": [
+        {
+          "id": "top",
+          "yStartPct": 0,
+          "yEndPct": 33
+        },
+        {
+          "id": "middle",
+          "yStartPct": 33,
+          "yEndPct": 67
+        },
+        {
+          "id": "bottom",
+          "yStartPct": 67,
+          "yEndPct": 100
+        }
+      ]
     }
   }
 }

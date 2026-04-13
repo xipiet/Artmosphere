@@ -29,39 +29,96 @@ window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
 class FloatingImage {
-    constructor(id, img, zone) {
+    constructor(id, img, zone, movementType) {
         this.id = id;
         this.img = img;
         this.zone = zone;
+        this.movementType = movementType; // 'zone', 'pedestrian', 'car', 'airplane'
         this.layerAlpha = 1;
         this.fadeAlpha = 1;
         this.isFading = false;
         this.currentLayer = 'background'; // Will be set by redistributeLayers()
         
-        // zufällige Position NUR innerhalb der Zone
-        const yMin = canvas.height * (zone.yStartPct / 100);
-        const yMax = canvas.height * (zone.yEndPct / 100) - img.height;
+        // Initialize position and velocity based on movement type
+        this.initializeMovement();
+    }
 
-        this.x = Math.random() * Math.max(0, canvas.width - img.width);
-        this.y = yMin + Math.random() * Math.max(0, yMax - yMin);
+    initializeMovement() {
+        const img = this.img;
+        
+        if (this.movementType === 'pedestrian') {
+            // Pedestrian: bottom area, slow horizontal movement
+            this.x = Math.random() * Math.max(0, canvas.width - img.width);
+            this.y = canvas.height * 0.67 + Math.random() * Math.max(0, canvas.height * 0.33 - img.height);
+            this.vx = (Math.random() * 0.05 + 0.1) * (Math.random() < 0.5 ? 1 : -1); // Slower: 0.1-0.15
+            this.vy = 0;
+        } else if (this.movementType === 'car') {
+            // Car: bottom area, normal speed horizontal movement
+            this.x = Math.random() * Math.max(0, canvas.width - img.width);
+            this.y = canvas.height * 0.67 + Math.random() * Math.max(0, canvas.height * 0.33 - img.height);
+            this.vx = (Math.random() * 0.1 + 0.2) * (Math.random() < 0.5 ? 1 : -1); // Normal: 0.2-0.3
+            this.vy = 0;
+        } else if (this.movementType === 'airplane') {
+            // Airplane: top third, normal speed horizontal movement
+            this.x = Math.random() * Math.max(0, canvas.width - img.width);
+            this.y = Math.random() * Math.max(0, canvas.height * 0.33 - img.height);
+            this.vx = (Math.random() * 0.1 + 0.2) * (Math.random() < 0.5 ? 1 : -1); // Normal: 0.2-0.3
+            this.vy = 0;
+        } else {
+            // Default zone-based movement (ipad.html)
+            const yMin = canvas.height * (this.zone.yStartPct / 100);
+            const yMax = canvas.height * (this.zone.yEndPct / 100) - img.height;
 
-        this.vx = (Math.random() * 0.4 + 0.2) * (Math.random() < 0.5 ? 1 : -1);
-        this.vy = (Math.random() * 0.4 + 0.2) * (Math.random() < 0.5 ? 1 : -1);
+            this.x = Math.random() * Math.max(0, canvas.width - img.width);
+            this.y = yMin + Math.random() * Math.max(0, yMax - yMin);
+
+            this.vx = (Math.random() * 0.4 + 0.2) * (Math.random() < 0.5 ? 1 : -1);
+            this.vy = (Math.random() * 0.4 + 0.2) * (Math.random() < 0.5 ? 1 : -1);
+        }
     }
 
     update() {
         this.x += this.vx;
         this.y += this.vy;
 
-        // Bounce nur in Zone
-        const yMin = canvas.height * (this.zone.yStartPct / 100);
-        const yMax = canvas.height * (this.zone.yEndPct / 100) - this.img.height;
+        // Update movement based on type
+        if (this.movementType === 'pedestrian') {
+            // Pedestrian: horizontal bounce only, stay in bottom area (67-100%)
+            if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
+                this.vx *= -1;
+            }
+            const yMin = canvas.height * 0.67;
+            const yMax = canvas.height - this.img.height;
+            if (this.y < yMin) this.y = yMin;
+            if (this.y > yMax) this.y = yMax;
+        } else if (this.movementType === 'car') {
+            // Car: horizontal bounce only, stay in bottom area (67-100%)
+            if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
+                this.vx *= -1;
+            }
+            const yMin = canvas.height * 0.67;
+            const yMax = canvas.height - this.img.height;
+            if (this.y < yMin) this.y = yMin;
+            if (this.y > yMax) this.y = yMax;
+        } else if (this.movementType === 'airplane') {
+            // Airplane: horizontal bounce only, stay in top third (0-33%)
+            if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
+                this.vx *= -1;
+            }
+            const yMax = canvas.height * 0.33;
+            if (this.y < 0) this.y = 0;
+            if (this.y > yMax) this.y = yMax;
+        } else {
+            // Zone-based movement (original ipad.html logic)
+            const yMin = canvas.height * (this.zone.yStartPct / 100);
+            const yMax = canvas.height * (this.zone.yEndPct / 100) - this.img.height;
 
-        if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
-            this.vx *= -1;
-        }
-        if (this.y <= yMin || this.y >= yMax) {
-            this.vy *= -1;
+            if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
+                this.vx *= -1;
+            }
+            if (this.y <= yMin || this.y >= yMax) {
+                this.vy *= -1;
+            }
         }
 
         // Fade: either in gallery fade mode OR if explicitly marked to fade
@@ -218,11 +275,15 @@ socket.on("admin:updateSettings", (settings) => {
     statusEl.textContent = `theme: ${themeConfig ? themeConfig.id : '?'} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
 });
 
-// Bild kommt an, mit Zone-ID und eindeutiger ID
-socket.on("newImage", ({ id, dataUrl, zoneId }) => {
+// Bild kommt an, mit Zone-ID (ipad.html) oder movementType (ipad2.html)
+socket.on("newImage", ({ id, dataUrl, zoneId, movementType }) => {
     const img = new Image();
     img.onload = () => {
-        const zone = themeConfig.zones.find(z => z.id === zoneId);
+        // Determine zone (only for zone-based movement)
+        let zone = null;
+        if (zoneId && themeConfig.zones) {
+            zone = themeConfig.zones.find(z => z.id === zoneId);
+        }
         
         let finalImg = img;
         
@@ -260,7 +321,12 @@ socket.on("newImage", ({ id, dataUrl, zoneId }) => {
             finalImg.src = tempCanvas.toDataURL();
         }
         
-        activeImages.push(new FloatingImage(id, finalImg, zone));
+        // Create FloatingImage with movement type or zone
+        if (movementType) {
+            activeImages.push(new FloatingImage(id, finalImg, null, movementType));
+        } else if (zone) {
+            activeImages.push(new FloatingImage(id, finalImg, zone, 'zone'));
+        }
     };
     img.src = dataUrl;
 });
@@ -293,7 +359,11 @@ socket.on("main:allImages", ({ images }) => {
     images.forEach(imageData => {
         const img = new Image();
         img.onload = () => {
-            const zone = themeConfig.zones.find(z => z.id === imageData.zoneId);
+            // Determine zone (only for zone-based movement)
+            let zone = null;
+            if (imageData.zoneId && themeConfig.zones) {
+                zone = themeConfig.zones.find(z => z.id === imageData.zoneId);
+            }
             
             let finalImg = img;
             
@@ -325,7 +395,12 @@ socket.on("main:allImages", ({ images }) => {
                 finalImg.src = tempCanvas.toDataURL();
             }
             
-            activeImages.push(new FloatingImage(imageData.id, finalImg, zone));
+            // Create FloatingImage with movement type or zone
+            if (imageData.movementType) {
+                activeImages.push(new FloatingImage(imageData.id, finalImg, null, imageData.movementType));
+            } else if (zone) {
+                activeImages.push(new FloatingImage(imageData.id, finalImg, zone, 'zone'));
+            }
         };
         img.src = imageData.dataUrl;
     });
