@@ -91,6 +91,7 @@ canvas#bgCanvas {
 .card:nth-child(1) .card-icon { animation-delay: 0s; }
 .card:nth-child(2) .card-icon { animation-delay: 0.2s; }
 .card:nth-child(3) .card-icon { animation-delay: 0.4s; }
+.card:nth-child(4) .card-icon { animation-delay: 0.6s; }
 
 @keyframes float {
     0%, 100% { transform: translateY(0px); }

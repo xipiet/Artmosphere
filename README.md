@@ -34,9 +34,10 @@
 
 #### 2. **ipad2.html** (Kategorien-basiert) - neues System
 - **Themes:** `stadt` (Stadtszene)
-- **Funktionsweise:** Benutzer wählt eine **Kategorie** (Fußgänger 🚶, Auto 🚗, Flugzeug ✈️)
+- **Funktionsweise:** Benutzer wählt eine **Kategorie** (Fußgänger 🚶, Auto 🚗, Flugzeug ✈️, Wasserverkehr 🚤)
 - **Bewegungslogik:** Bilder bewegen sich **kategoriespezifisch**:
   - **✈️ Flugzeug:** oben (Luft), schnell, linear links-rechts
+  - **🚤 Wasserverkehr:** unten (Wasser), normal schnell, linear links-rechts mit leichtem Schaukeln
   - **🚗 Auto:** unten (Straße), normal schnell, linear links-rechts
   - **🚶 Fußgänger:** unten (Gehweg), LANGSAM, linear links-rechts
 - **Einsatz:** Für realistische, zielgerichtete Bewegungsmuster
@@ -93,4 +94,3 @@
 **Für Kategorien-basierte Themes (ipad2.html):**
 - `movementType` in main.js `FloatingImage` Klasse hinzufügen
 - Bewegungslogik in `initializeMovement()` und `update()` definieren
-

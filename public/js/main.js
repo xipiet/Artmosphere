@@ -33,11 +33,13 @@ class FloatingImage {
         this.id = id;
         this.img = img;
         this.zone = zone;
-        this.movementType = movementType; // 'zone', 'pedestrian', 'car', 'airplane'
+        this.movementType = movementType; // 'zone', 'pedestrian', 'car', 'airplane', 'watercraft'
         this.layerAlpha = 1;
         this.fadeAlpha = 1;
         this.isFading = false;
         this.currentLayer = 'background'; // Will be set by redistributeLayers()
+        this.age = Math.random() * 1000;
+        this.rotation = 0;
         
         // Initialize position and velocity based on movement type
         this.initializeMovement();
@@ -53,17 +55,46 @@ class FloatingImage {
             this.vx = (Math.random() * 0.05 + 0.1) * (Math.random() < 0.5 ? 1 : -1); // Slower: 0.1-0.15
             this.vy = 0;
         } else if (this.movementType === 'car') {
-            // Car: bottom area, normal speed horizontal movement
+            // Car: road band with small lane changes and driving vibration
+            const yMin = canvas.height * 0.50;
+            const yMax = Math.max(yMin, canvas.height * 0.60 - img.height);
             this.x = Math.random() * Math.max(0, canvas.width - img.width);
-            this.y = canvas.height * 0.67 + Math.random() * Math.max(0, canvas.height * 0.33 - img.height);
-            this.vx = (Math.random() * 0.1 + 0.2) * (Math.random() < 0.5 ? 1 : -1); // Normal: 0.2-0.3
-            this.vy = 0;
+            this.baseY = yMin + Math.random() * Math.max(0, yMax - yMin);
+            this.y = this.baseY;
+            this.vx = (Math.random() * 0.13 + 0.22) * (Math.random() < 0.5 ? 1 : -1);
+            this.vy = (Math.random() * 0.012 + 0.006) * (Math.random() < 0.5 ? 1 : -1);
+            this.drivePhase = Math.random() * Math.PI * 2;
+            this.driveSpeed = Math.random() * 0.025 + 0.025;
+            this.bumpAmplitude = Math.random() * 2.2 + 1.2;
+            this.laneDriftAmplitude = Math.random() * 8 + 4;
+            this.rollAmplitude = Math.random() * 0.012 + 0.008;
         } else if (this.movementType === 'airplane') {
-            // Airplane: top third, normal speed horizontal movement
+            // Airplane: sky band with smooth altitude changes and banking
+            const yMin = canvas.height * 0.04;
+            const yMax = Math.max(yMin, canvas.height * 0.3 - img.height);
             this.x = Math.random() * Math.max(0, canvas.width - img.width);
-            this.y = Math.random() * Math.max(0, canvas.height * 0.33 - img.height);
-            this.vx = (Math.random() * 0.1 + 0.2) * (Math.random() < 0.5 ? 1 : -1); // Normal: 0.2-0.3
-            this.vy = 0;
+            this.baseY = yMin + Math.random() * Math.max(0, yMax - yMin);
+            this.y = this.baseY;
+            this.vx = (Math.random() * 0.14 + 0.22) * (Math.random() < 0.5 ? 1 : -1);
+            this.vy = (Math.random() * 0.02 + 0.008) * (Math.random() < 0.5 ? 1 : -1);
+            this.flightPhase = Math.random() * Math.PI * 2;
+            this.flightSpeed = Math.random() * 0.015 + 0.01;
+            this.altitudeAmplitude = Math.random() * 16 + 10;
+            this.bankAmplitude = Math.random() * 0.045 + 0.025;
+        } else if (this.movementType === 'watercraft') {
+            // Watercraft: lower water band, horizontal movement with wave motion
+            const yMin = canvas.height * 0.72;
+            const yMax = Math.max(yMin, canvas.height * 0.9 - img.height);
+            this.x = Math.random() * Math.max(0, canvas.width - img.width);
+            this.baseY = yMin + Math.random() * Math.max(0, yMax - yMin);
+            this.y = this.baseY;
+            this.vx = (Math.random() * 0.1 + 0.16) * (Math.random() < 0.5 ? 1 : -1);
+            this.vy = (Math.random() * 0.025 + 0.01) * (Math.random() < 0.5 ? 1 : -1);
+            this.wavePhase = Math.random() * Math.PI * 2;
+            this.waveSpeed = Math.random() * 0.018 + 0.014;
+            this.bobAmplitude = Math.random() * 7 + 5;
+            this.driftAmplitude = Math.random() * 18 + 10;
+            this.rollAmplitude = Math.random() * 0.035 + 0.025;
         } else {
             // Default zone-based movement (ipad.html)
             const yMin = canvas.height * (this.zone.yStartPct / 100);
@@ -78,6 +109,7 @@ class FloatingImage {
     }
 
     update() {
+        this.age += 1;
         this.x += this.vx;
         this.y += this.vy;
 
@@ -92,22 +124,93 @@ class FloatingImage {
             if (this.y < yMin) this.y = yMin;
             if (this.y > yMax) this.y = yMax;
         } else if (this.movementType === 'car') {
-            // Car: horizontal bounce only, stay in bottom area (67-100%)
+            // Car: bounce horizontally, hold the road band, and add subtle lane motion
             if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
                 this.vx *= -1;
             }
-            const yMin = canvas.height * 0.67;
-            const yMax = canvas.height - this.img.height;
-            if (this.y < yMin) this.y = yMin;
-            if (this.y > yMax) this.y = yMax;
+            const yMin = canvas.height * 0.50;
+            const yMax = Math.max(yMin, canvas.height * 0.60 - this.img.height);
+            if (this.baseY === undefined) this.baseY = this.y;
+            if (this.drivePhase === undefined) this.drivePhase = Math.random() * Math.PI * 2;
+            if (this.driveSpeed === undefined) this.driveSpeed = 0.03;
+            if (this.bumpAmplitude === undefined) this.bumpAmplitude = 2;
+            if (this.laneDriftAmplitude === undefined) this.laneDriftAmplitude = 6;
+            if (this.rollAmplitude === undefined) this.rollAmplitude = 0.01;
+            this.baseY += this.vy;
+
+            if (yMax === yMin) {
+                this.baseY = yMin;
+                this.vy = 0;
+            } else if (this.baseY <= yMin || this.baseY >= yMax) {
+                this.vy *= -1;
+                this.baseY = Math.min(Math.max(this.baseY, yMin), yMax);
+            }
+
+            const road = this.age * this.driveSpeed + this.drivePhase;
+            const bump = Math.sin(road * 3.6) * this.bumpAmplitude;
+            const laneDrift = Math.sin(road * 0.45) * this.laneDriftAmplitude;
+            const speedPulse = 1 + Math.sin(road * 1.4) * 0.09;
+            this.x += this.vx * (speedPulse - 1);
+            this.y = this.baseY + laneDrift + bump;
+            this.rotation = Math.sin(road * 2.4) * this.rollAmplitude;
         } else if (this.movementType === 'airplane') {
-            // Airplane: horizontal bounce only, stay in top third (0-33%)
+            // Airplane: bounce horizontally, bank into the turn, and glide through the sky band
             if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
                 this.vx *= -1;
             }
-            const yMax = canvas.height * 0.33;
-            if (this.y < 0) this.y = 0;
-            if (this.y > yMax) this.y = yMax;
+            const yMin = canvas.height * 0.04;
+            const yMax = Math.max(yMin, canvas.height * 0.3 - this.img.height);
+            if (this.baseY === undefined) this.baseY = this.y;
+            if (this.flightPhase === undefined) this.flightPhase = Math.random() * Math.PI * 2;
+            if (this.flightSpeed === undefined) this.flightSpeed = 0.012;
+            if (this.altitudeAmplitude === undefined) this.altitudeAmplitude = 14;
+            if (this.bankAmplitude === undefined) this.bankAmplitude = 0.035;
+            this.baseY += this.vy;
+
+            if (yMax === yMin) {
+                this.baseY = yMin;
+                this.vy = 0;
+            } else if (this.baseY <= yMin || this.baseY >= yMax) {
+                this.vy *= -1;
+                this.baseY = Math.min(Math.max(this.baseY, yMin), yMax);
+            }
+
+            const flight = this.age * this.flightSpeed + this.flightPhase;
+            const altitude = Math.sin(flight) * this.altitudeAmplitude;
+            const speedPulse = 1 + Math.sin(flight * 0.8) * 0.1;
+            this.x += this.vx * (speedPulse - 1);
+            this.y = this.baseY + altitude;
+            this.rotation = Math.sin(flight + Math.PI / 4) * this.bankAmplitude * (this.vx >= 0 ? 1 : -1);
+        } else if (this.movementType === 'watercraft') {
+            // Watercraft: bounce horizontally, drift inside the water band, and ride small waves
+            if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
+                this.vx *= -1;
+            }
+            const yMin = canvas.height * 0.72;
+            const yMax = Math.max(yMin, canvas.height * 0.9 - this.img.height);
+            if (this.baseY === undefined) this.baseY = this.y;
+            if (this.wavePhase === undefined) this.wavePhase = Math.random() * Math.PI * 2;
+            if (this.waveSpeed === undefined) this.waveSpeed = 0.02;
+            if (this.bobAmplitude === undefined) this.bobAmplitude = 7;
+            if (this.driftAmplitude === undefined) this.driftAmplitude = 14;
+            if (this.rollAmplitude === undefined) this.rollAmplitude = 0.03;
+            this.baseY += this.vy;
+
+            if (yMax === yMin) {
+                this.baseY = yMin;
+                this.vy = 0;
+            } else if (this.baseY <= yMin || this.baseY >= yMax) {
+                this.vy *= -1;
+                this.baseY = Math.min(Math.max(this.baseY, yMin), yMax);
+            }
+
+            const wave = this.age * this.waveSpeed + this.wavePhase;
+            const bob = Math.sin(wave) * this.bobAmplitude;
+            const longSwell = Math.sin(wave * 0.43) * this.driftAmplitude;
+            const speedPulse = 1 + Math.sin(wave * 0.7) * 0.12;
+            this.x += this.vx * (speedPulse - 1);
+            this.y = this.baseY + bob + longSwell * 0.2;
+            this.rotation = Math.sin(wave + Math.PI / 5) * this.rollAmplitude;
         } else {
             // Zone-based movement (original ipad.html logic)
             const yMin = canvas.height * (this.zone.yStartPct / 100);
@@ -138,9 +241,104 @@ class FloatingImage {
         return this.fadeAlpha === 0;
     }
 
+    drawDirectionalImage(alpha, centerX, centerY) {
+        const facingScale = this.vx < 0 ? -1 : 1;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(centerX, centerY);
+        ctx.scale(facingScale, 1);
+        ctx.rotate(this.rotation * facingScale);
+        ctx.drawImage(this.img, -this.img.width / 2, -this.img.height / 2);
+        ctx.restore();
+    }
+
     draw() {
         ctx.globalAlpha = this.layerAlpha * this.fadeAlpha;
-        ctx.drawImage(this.img, this.x, this.y);
+        if (this.movementType === 'airplane') {
+            const alpha = this.layerAlpha * this.fadeAlpha;
+            const centerX = this.x + this.img.width / 2;
+            const centerY = this.y + this.img.height / 2;
+            const trailDirection = this.vx >= 0 ? -1 : 1;
+
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.22;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            for (let i = 0; i < 3; i++) {
+                const trailOffset = 22 + i * 22;
+                const lift = Math.sin(this.age * 0.035 + i) * 7;
+                ctx.beginPath();
+                ctx.moveTo(centerX + trailDirection * trailOffset, centerY + lift);
+                ctx.quadraticCurveTo(
+                    centerX + trailDirection * (trailOffset + 20),
+                    centerY + lift - 5,
+                    centerX + trailDirection * (trailOffset + 44),
+                    centerY + lift
+                );
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            this.drawDirectionalImage(alpha, centerX, centerY);
+        } else if (this.movementType === 'car') {
+            const alpha = this.layerAlpha * this.fadeAlpha;
+            const centerX = this.x + this.img.width / 2;
+            const centerY = this.y + this.img.height / 2;
+
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.24;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.beginPath();
+            ctx.ellipse(
+                centerX,
+                this.y + this.img.height * 0.92,
+                this.img.width * 0.34,
+                Math.max(5, this.img.height * 0.06),
+                0,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+            ctx.restore();
+
+            this.drawDirectionalImage(alpha, centerX, centerY);
+        } else if (this.movementType === 'watercraft') {
+            const alpha = this.layerAlpha * this.fadeAlpha;
+            const centerX = this.x + this.img.width / 2;
+            const centerY = this.y + this.img.height / 2;
+            const wakeDirection = this.vx >= 0 ? -1 : 1;
+
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.32;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            for (let i = 0; i < 3; i++) {
+                const wakeOffset = 18 + i * 15;
+                const waveLift = Math.sin(this.age * 0.08 + i) * 5;
+                ctx.beginPath();
+                ctx.moveTo(centerX + wakeDirection * wakeOffset, centerY + this.img.height * 0.22 + waveLift);
+                ctx.quadraticCurveTo(
+                    centerX + wakeDirection * (wakeOffset + 18),
+                    centerY + this.img.height * 0.18 + waveLift + 5,
+                    centerX + wakeDirection * (wakeOffset + 38),
+                    centerY + this.img.height * 0.22 + waveLift
+                );
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            this.drawDirectionalImage(alpha, centerX, centerY);
+        } else if (this.movementType === 'pedestrian') {
+            const alpha = this.layerAlpha * this.fadeAlpha;
+            const centerX = this.x + this.img.width / 2;
+            const centerY = this.y + this.img.height / 2;
+            this.drawDirectionalImage(alpha, centerX, centerY);
+        } else {
+            ctx.drawImage(this.img, this.x, this.y);
+        }
         ctx.globalAlpha = 1;
     }
 }
