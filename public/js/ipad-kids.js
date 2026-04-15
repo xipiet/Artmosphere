@@ -3,32 +3,51 @@ const mascotElem = document.getElementById("kids-tutorial-mascot");
 const kidsTextElem = document.getElementById("kids-tutorial-text");
 const continueBtn = document.getElementById("kids-tutorial-continue-btn");
 
-// NEXT TODOs:
-// - Unterscheidung welche Steps auf Zone View und welche auf Draw View angezeigt werden sollen
-// - Maskottchen entsprechend Theme anpassen
+// NEXT TODOs
+// - Button aus Dialog Bubble ab Step 2 weg, dafür X zum Tutorial abbrechen
+// - Position der Dialog Bubble an Highlight anpassen
+
+function getMascot() {
+  const theme = activeThemeName;
+
+  if (theme === "ocean") {
+    return { name: "Finn", image: "/media/shark-mascot-1.png"};
+  } else if (theme === "jungle") {
+    return { name: "Momo", image: "/media/monkey-mascot.png"};
+  } 
+}
+const mascotInfo = getMascot();
 
 const kidsTutorial = {
-  step: 0,
-  steps: [
-    {
-      text: "Hey, ich bin Momo. <br>Lass uns etwas zeichnen!",
-      mascot: "/media/monkey-mascot.png"
+  currentKey: "intro",
+  steps: {
+    intro: {
+      text: `Hey, ich bin ${mascotInfo.name}.<br>Lass uns etwas zeichnen!`,
+      mascot: mascotInfo.image,
+      next: () => isDrawViewActive() ? "draw" : "zone"
     },
-    {
-      text: "Super! Wähle jetzt einen Bereich.",
-      mascot: "/media/monkey-mascot.png",
+    zone: {
+      text: "Wir wählen zuerst eine Zone aus, in der wir zeichnen wollen.",
+      mascot: mascotInfo.image,
       highlight: ".zone-0",
-      continuesOnClick: true
+      continuesOnClick: true,
+      next: () => "draw"
     },
-    {
+    draw: {
       text: "Jetzt wird gezeichnet! 🎨",
-      mascot: "/media/monkey-mascot.png"
+      mascot: mascotInfo.image,
+      next: () => null
     }
-  ]
+  }
 };
 
+function isDrawViewActive() {
+  const drawView = document.getElementById("drawView");
+  return drawView && drawView.style.display === "flex";
+}
+
 function showCurrentStep() {
-  const step = kidsTutorial.steps[kidsTutorial.step];
+  const step = kidsTutorial.steps[kidsTutorial.currentKey];
   if (!step) return;
 
   kidsTextElem.innerHTML = step.text;
@@ -46,10 +65,12 @@ function showCurrentStep() {
 }
 
 continueBtn.addEventListener("click", () => {
-  kidsTutorial.step++;
-  if (kidsTutorial.step >= kidsTutorial.steps.length) {
+  const step = kidsTutorial.steps[kidsTutorial.currentKey];
+  const nextKey = step.next();
+  if (!nextKey) {
     endTutorial();
   } else {
+    kidsTutorial.currentKey = nextKey;
     showCurrentStep();
   }
 });
@@ -99,8 +120,10 @@ function highlightElement(selector, continuesOnClick = false) {
     highlightClickHandler = () => {
       clearHighlight();
       hideOverlay();
-      kidsTutorial.step++;
-      if (kidsTutorial.step < kidsTutorial.steps.length) {
+      const step = kidsTutorial.steps[kidsTutorial.currentKey];
+      const nextKey = step.next ? step.next() : null;
+      kidsTutorial.currentKey = nextKey || "draw";
+      if (nextKey) {
         showCurrentStep();
       } else {
         endTutorial();

@@ -289,7 +289,7 @@ socket.on("kidsMode:update", async (d) => {
             }
         });
 
-        kidsTutorial.step = 0;
+        kidsTutorial.currentKey = "intro";
         showCurrentStep();
         document.getElementById("kids-ui").style.display = "block";
     } else {
