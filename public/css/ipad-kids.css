@@ -1,14 +1,18 @@
 #kids-tutorial-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1001;
+  z-index: 1003;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.4s ease;
+}
+
+#kids-tutorial-overlay.has-background {
+  background: rgba(0, 0, 0, 0.6);
 }
 
 #kids-tutorial-overlay.active {
@@ -39,10 +43,19 @@
 }
 
 .kids-tutorial-highlight {
-  position: relative;
-  z-index: 1002;
-  box-shadow: 0 0 0 6px rgba(255, 255, 0, 0.8);
+  position: fixed;
+  z-index: 1004;
+  pointer-events: auto;
   border-radius: 8px;
+}
+
+.kids-tutorial-hole {
+  position: fixed;
+  z-index: 1001;
+  pointer-events: none;
+  background: transparent;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
 }
 
 .hidden {
