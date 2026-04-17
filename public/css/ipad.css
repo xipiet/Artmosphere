@@ -135,7 +135,10 @@ canvas#bgCanvas {
 
 #drawArea {
     margin-top: 15px;
-    background: #fff;
+    background:
+        linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
+        url("/media/drawing-template.svg") center / 88% auto no-repeat,
+        #fff;
     box-shadow: 0 0 10px rgba(0,0,0,0.2);
     touch-action: none;
     border-radius: 8px;

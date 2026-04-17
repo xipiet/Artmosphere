@@ -142,14 +142,14 @@ io.on("connection", (socket) => {
   });
 
   // iPad sends image + zone (ipad.html) OR image + movementType (ipad2.html)
-  socket.on("sendImage", ({ dataUrl, zoneId, movementType }) => {
+  socket.on("sendImage", ({ dataUrl, zoneId, movementType, facingDirection }) => {
     const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
     // Support both old (zoneId) and new (movementType) systems
     let imageData;
     if (movementType) {
       // ipad2 system: category-based movement
-      imageData = { id: imageId, dataUrl, movementType, timestamp: Date.now() };
+      imageData = { id: imageId, dataUrl, movementType, facingDirection: facingDirection || "right", timestamp: Date.now() };
     } else {
       // ipad system: zone-based movement
       imageData = { id: imageId, dataUrl, zoneId, timestamp: Date.now() };

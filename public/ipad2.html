@@ -51,10 +51,26 @@
           <label for="sizeSlider">Stift:</label>
           <input type="range" id="sizeSlider" min="1" max="30" value="4">
         </div>
-        <button id="erase">Eraser</button>
+        <div id="toolPicker" aria-label="Werkzeuge">
+          <button id="drawTool" class="tool-btn active" type="button">Stift</button>
+          <button id="fillTool" class="tool-btn" type="button">Füllen</button>
+          <button id="erase" class="tool-btn danger" type="button">Radierer</button>
+        </div>
+        <div id="historyControls" aria-label="Zeichenschritte">
+          <button id="undoBtn" class="history-btn" type="button" disabled>Zurück</button>
+          <button id="redoBtn" class="history-btn" type="button" disabled>Vor</button>
+        </div>
+        <div id="directionPicker" aria-label="Start-Fahrtrichtung">
+          <span>Fährt:</span>
+          <button class="direction-btn active" type="button" data-facing="right">→</button>
+          <button class="direction-btn" type="button" data-facing="left">←</button>
+        </div>
       </div>
 
-      <canvas id="drawArea" width="800" height="500"></canvas>
+      <div id="drawingCanvasFrame">
+        <div id="drawingTemplate" aria-hidden="true"></div>
+        <canvas id="drawArea" width="800" height="500"></canvas>
+      </div>
 
       <div id="controls">
         <button id="back">Back to Categories</button>

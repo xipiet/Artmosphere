@@ -29,11 +29,12 @@ window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
 class FloatingImage {
-    constructor(id, img, zone, movementType) {
+    constructor(id, img, zone, movementType, facingDirection = 'right') {
         this.id = id;
         this.img = img;
         this.zone = zone;
         this.movementType = movementType; // 'zone', 'pedestrian', 'car', 'airplane', 'watercraft'
+        this.facingDirection = facingDirection === 'left' ? 'left' : 'right';
         this.layerAlpha = 1;
         this.fadeAlpha = 1;
         this.isFading = false;
@@ -43,6 +44,26 @@ class FloatingImage {
         
         // Initialize position and velocity based on movement type
         this.initializeMovement();
+        this.applyInitialDirection();
+    }
+
+    applyInitialDirection() {
+        if (!['pedestrian', 'car', 'airplane', 'watercraft'].includes(this.movementType)) return;
+
+        const direction = this.facingDirection === 'left' ? -1 : 1;
+        this.vx = Math.abs(this.vx) * direction;
+    }
+
+    bounceHorizontally() {
+        const maxX = Math.max(0, canvas.width - this.img.width);
+
+        if (this.x <= 0) {
+            this.x = 0;
+            this.vx = Math.abs(this.vx);
+        } else if (this.x >= maxX) {
+            this.x = maxX;
+            this.vx = -Math.abs(this.vx);
+        }
     }
 
     initializeMovement() {
@@ -116,18 +137,14 @@ class FloatingImage {
         // Update movement based on type
         if (this.movementType === 'pedestrian') {
             // Pedestrian: horizontal bounce only, stay in bottom area (67-100%)
-            if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
-                this.vx *= -1;
-            }
+            this.bounceHorizontally();
             const yMin = canvas.height * 0.67;
             const yMax = canvas.height - this.img.height;
             if (this.y < yMin) this.y = yMin;
             if (this.y > yMax) this.y = yMax;
         } else if (this.movementType === 'car') {
             // Car: bounce horizontally, hold the road band, and add subtle lane motion
-            if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
-                this.vx *= -1;
-            }
+            this.bounceHorizontally();
             const yMin = canvas.height * 0.50;
             const yMax = Math.max(yMin, canvas.height * 0.60 - this.img.height);
             if (this.baseY === undefined) this.baseY = this.y;
@@ -151,13 +168,12 @@ class FloatingImage {
             const laneDrift = Math.sin(road * 0.45) * this.laneDriftAmplitude;
             const speedPulse = 1 + Math.sin(road * 1.4) * 0.09;
             this.x += this.vx * (speedPulse - 1);
+            this.bounceHorizontally();
             this.y = this.baseY + laneDrift + bump;
             this.rotation = Math.sin(road * 2.4) * this.rollAmplitude;
         } else if (this.movementType === 'airplane') {
             // Airplane: bounce horizontally, bank into the turn, and glide through the sky band
-            if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
-                this.vx *= -1;
-            }
+            this.bounceHorizontally();
             const yMin = canvas.height * 0.04;
             const yMax = Math.max(yMin, canvas.height * 0.3 - this.img.height);
             if (this.baseY === undefined) this.baseY = this.y;
@@ -179,13 +195,12 @@ class FloatingImage {
             const altitude = Math.sin(flight) * this.altitudeAmplitude;
             const speedPulse = 1 + Math.sin(flight * 0.8) * 0.1;
             this.x += this.vx * (speedPulse - 1);
+            this.bounceHorizontally();
             this.y = this.baseY + altitude;
             this.rotation = Math.sin(flight + Math.PI / 4) * this.bankAmplitude * (this.vx >= 0 ? 1 : -1);
         } else if (this.movementType === 'watercraft') {
             // Watercraft: bounce horizontally, drift inside the water band, and ride small waves
-            if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
-                this.vx *= -1;
-            }
+            this.bounceHorizontally();
             const yMin = canvas.height * 0.72;
             const yMax = Math.max(yMin, canvas.height * 0.9 - this.img.height);
             if (this.baseY === undefined) this.baseY = this.y;
@@ -209,6 +224,7 @@ class FloatingImage {
             const longSwell = Math.sin(wave * 0.43) * this.driftAmplitude;
             const speedPulse = 1 + Math.sin(wave * 0.7) * 0.12;
             this.x += this.vx * (speedPulse - 1);
+            this.bounceHorizontally();
             this.y = this.baseY + bob + longSwell * 0.2;
             this.rotation = Math.sin(wave + Math.PI / 5) * this.rollAmplitude;
         } else {
@@ -216,9 +232,7 @@ class FloatingImage {
             const yMin = canvas.height * (this.zone.yStartPct / 100);
             const yMax = canvas.height * (this.zone.yEndPct / 100) - this.img.height;
 
-            if (this.x <= 0 || this.x + this.img.width >= canvas.width) {
-                this.vx *= -1;
-            }
+            this.bounceHorizontally();
             if (this.y <= yMin || this.y >= yMax) {
                 this.vy *= -1;
             }
@@ -242,7 +256,9 @@ class FloatingImage {
     }
 
     drawDirectionalImage(alpha, centerX, centerY) {
-        const facingScale = this.vx < 0 ? -1 : 1;
+        const drawnFacingScale = this.facingDirection === 'left' ? -1 : 1;
+        const movementFacingScale = this.vx < 0 ? -1 : 1;
+        const facingScale = drawnFacingScale * movementFacingScale;
 
         ctx.save();
         ctx.globalAlpha = alpha;
@@ -474,7 +490,7 @@ socket.on("admin:updateSettings", (settings) => {
 });
 
 // Bild kommt an, mit Zone-ID (ipad.html) oder movementType (ipad2.html)
-socket.on("newImage", ({ id, dataUrl, zoneId, movementType }) => {
+socket.on("newImage", ({ id, dataUrl, zoneId, movementType, facingDirection }) => {
     const img = new Image();
     img.onload = () => {
         // Determine zone (only for zone-based movement)
@@ -521,7 +537,7 @@ socket.on("newImage", ({ id, dataUrl, zoneId, movementType }) => {
         
         // Create FloatingImage with movement type or zone
         if (movementType) {
-            activeImages.push(new FloatingImage(id, finalImg, null, movementType));
+            activeImages.push(new FloatingImage(id, finalImg, null, movementType, facingDirection));
         } else if (zone) {
             activeImages.push(new FloatingImage(id, finalImg, zone, 'zone'));
         }
@@ -595,7 +611,7 @@ socket.on("main:allImages", ({ images }) => {
             
             // Create FloatingImage with movement type or zone
             if (imageData.movementType) {
-                activeImages.push(new FloatingImage(imageData.id, finalImg, null, imageData.movementType));
+                activeImages.push(new FloatingImage(imageData.id, finalImg, null, imageData.movementType, imageData.facingDirection));
             } else if (zone) {
                 activeImages.push(new FloatingImage(imageData.id, finalImg, zone, 'zone'));
             }
