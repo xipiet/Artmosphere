@@ -2,21 +2,19 @@
 <html lang="de">
   <head>
     <meta charset="utf-8" />
-    <title>iPad Draw</title>
+    <title>iPad Draw - Kategorien</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <link rel="stylesheet" href="/css/ipad.css">
   </head>
 
   <body>
-    <!-- THEME VIEW (Zone Selection) -->
-    <div id="themeView">
-      <button id="helpBtnTheme" class="help-btn">?</button>
+    <!-- CATEGORY SELECTION VIEW -->
+    <div id="categoryView">
+      <button id="helpBtnCategory" class="help-btn">?</button>
       <div id="viewport">
         <canvas id="bgCanvas"></canvas>
-        <div id="zone0" class="zone-overlay zone-0" style="top:0; height:33%;"></div>
-        <div id="zone1" class="zone-overlay zone-1" style="top:33%; height:34%;"></div>
-        <div id="zone2" class="zone-overlay zone-2" style="top:67%; height:33%;"></div>
+        <div id="cardsContainer"></div>
       </div>
     </div>
 
@@ -36,16 +34,31 @@
           <label for="sizeSlider">Stift:</label>
           <input type="range" id="sizeSlider" min="1" max="30" value="4">
         </div>
-        <button id="erase">Eraser</button>
+        <div id="toolPicker" aria-label="Werkzeuge">
+          <button id="drawTool" class="tool-btn active" type="button">Stift</button>
+          <button id="fillTool" class="tool-btn" type="button">Füllen</button>
+          <button id="erase" class="tool-btn danger" type="button">Radierer</button>
+        </div>
+        <div id="historyControls" aria-label="Zeichenschritte">
+          <button id="undoBtn" class="history-btn" type="button" disabled>Zurück</button>
+          <button id="redoBtn" class="history-btn" type="button" disabled>Vor</button>
+        </div>
+        <div id="directionPicker" aria-label="Start-Fahrtrichtung">
+          <span>Fährt:</span>
+          <button class="direction-btn active" type="button" data-facing="right">→</button>
+          <button class="direction-btn" type="button" data-facing="left">←</button>
+        </div>
       </div>
 
-      <canvas id="drawArea" width="800" height="500"></canvas>
+      <div id="drawingCanvasFrame">
+        <div id="drawingTemplate" aria-hidden="true"></div>
+        <canvas id="drawArea" width="800" height="500"></canvas>
+      </div>
 
       <div id="controls">
-        <button id="back">Back to Zones</button>
+        <button id="back">Back to Categories</button>
         <button id="clear">Clear</button>
         <button id="send">Send</button>
-        <button id="screenshot">Screenshot Draw</button>
       </div>
     </div>
 
@@ -54,9 +67,9 @@
       <div class="modal-content">
         <button class="modal-close">&times;</button>
         <h2>Wie funktioniert es?</h2>
-        <p>Du befindest dich jetzt in der kreativen Zone unserer Atmosphere Installation. Das Thema dieses Raums ist eine <span id="themeName">Unterwasserwelt</span>, die aus verschiedenen Bereichen besteht.</p>
-        <p>Wähle zuerst den Bereich, in dem dein Kunstwerk erscheinen soll. Danach gelangst du zu einer Zeichenfläche, auf der du dein eigenes Objekt malen kannst – ganz so, wie du es dir vorstellen würdest.</p>
-        <p>Wenn du fertig bist, schickst du deine Zeichnung ab. Sie wird anschließend in den echten Raum projiziert und als Teil des digitalen, animierten 3D-Objekts zum Leben erweckt.</p>
+        <p>Du befindest dich jetzt in der kreativen Zone unserer Atmosphere Installation. Das Thema dieses Raums ist eine <span id="themeName">Atmosphäre</span>.</p>
+        <p>Wähle zuerst eine Kategorie: Fußgänger, Auto, Flugzeug oder Wasserverkehr. Dann gelangst du zu einer Zeichenfläche, auf der du dein eigenes Kunstwerk malen kannst.</p>
+        <p>Deine Zeichnung wird anschließend in den echten Raum projiziert und bewegt sich je nach gewählter Kategorie: Fußgänger gehen, Autos fahren, Flugzeuge fliegen, Boote und Jetskis fahren durchs Wasser!</p>
         <p>Viel Spaß dabei, deiner Fantasie freien Lauf zu lassen!</p>
       </div>
     </div>

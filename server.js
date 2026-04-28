@@ -2,11 +2,75 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { Server } = require('socket.io');
+const mainRenderer = require('./lib/mainRenderer');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  maxHttpBufferSize: 5 * 1024 * 1024
+});
+
+// ----------------------------------
+// Session & Artwork Storage Setup
+// ----------------------------------
+// Resolution order:
+//   1. ARTMOSPHERE_SAVE_PATH env var (explicit override, e.g. for production)
+//   2. $XDG_DATA_HOME/artmosphere/saved (Linux user data convention)
+//   3. ~/.local/share/artmosphere/saved (XDG default)
+const SAVE_PATH = process.env.ARTMOSPHERE_SAVE_PATH
+  || path.join(
+       process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'),
+       'artmosphere',
+       'saved'
+     );
+
+const sessionStorage = new Map(); // sessionId -> { drawingDataUrl, timestamp, movementType, facingDirection, expiresAt }
+const SESSION_TTL_MS = 10 * 60 * 1000; // 10 min — unsaved drafts are dropped after this
+
+try {
+  fs.mkdirSync(SAVE_PATH, { recursive: true });
+  console.log(`Artwork save path ready: ${SAVE_PATH}`);
+} catch (err) {
+  console.error('Failed to create SAVE_PATH:', SAVE_PATH, err);
+}
+
+// Periodic GC: drop expired sessions that the user never finalized
+setInterval(() => {
+  const now = Date.now();
+  for (const [sid, sess] of sessionStorage) {
+    if (sess.expiresAt && sess.expiresAt < now) {
+      sessionStorage.delete(sid);
+      console.log(`[gc] dropped expired session ${sid}`);
+    }
+  }
+}, 60 * 1000);
+
+// Helper: Save Base64 image to file
+function saveBase64Image(base64Data, filename) {
+  try {
+    const base64String = base64Data.replace(/^data:image\/png;base64,/, '');
+    const buffer = Buffer.from(base64String, 'base64');
+    fs.writeFileSync(filename, buffer);
+    console.log(`Saved image: ${filename}`);
+  } catch (err) {
+    console.error(`Failed to save image: ${filename}`, err);
+  }
+}
+
+// Helper: Generate unique session ID
+function generateSessionId() {
+  return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// Helper: Sanitize username for directory name
+function sanitizeUsername(username) {
+  return (username || 'anonymous')
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]/g, '_')
+    .slice(0, 50);
+}
 
 // ----------------------------------
 // Load Theme Config + Settings
@@ -30,7 +94,7 @@ let serverSettings = {
   backgroundOpacityMax: 0.39,
   backgroundOpacityMin: 0.1
 };
-let activeImages = []; // Store active paintings { id, dataUrl, zoneId, timestamp }
+let activeImages = []; // Store active paintings { id, dataUrl, movementType, timestamp }
 
 // -------------------- Load Config (Themes only) --------------------
 function loadConfig() {
@@ -89,10 +153,6 @@ app.get("/ipad", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "ipad.html"));
 });
 
-app.get("/ipad2", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "ipad2.html"));
-});
-
 app.get("/ipad-endscreen", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "ipadEndscreen.html"));
 });
@@ -141,40 +201,55 @@ io.on("connection", (socket) => {
     settings: serverSettings
   });
 
-  // iPad sends image + zone (ipad.html) OR image + movementType (ipad2.html)
-  socket.on("sendImage", ({ dataUrl, zoneId, movementType }) => {
-    const imageId = `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Support both old (zoneId) and new (movementType) systems
-    let imageData;
-    if (movementType) {
-      // ipad2 system: category-based movement
-      imageData = { id: imageId, dataUrl, movementType, timestamp: Date.now() };
-    } else {
-      // ipad system: zone-based movement
-      imageData = { id: imageId, dataUrl, zoneId, timestamp: Date.now() };
+  // iPad sends drawing + movementType. We acknowledge with the new sessionId.
+  // Drawing is buffered in RAM only — nothing hits the disk until finalizeArtwork.
+  socket.on("sendImage", ({ dataUrl, movementType, facingDirection }, ack) => {
+    if (!dataUrl || typeof dataUrl !== 'string') {
+      if (typeof ack === 'function') ack({ ok: false, error: 'missing_dataUrl' });
+      return;
     }
-    
-    // Only enforce max images limit in "maxPaintings" mode
+
+    const facing = facingDirection === 'left' ? 'left' : 'right';
+    const sessionId = generateSessionId();
+    const timestamp = Date.now();
+    const imageId = `img_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;
+
+    sessionStorage.set(sessionId, {
+      drawingDataUrl: dataUrl,
+      timestamp,
+      movementType,
+      facingDirection: facing,
+      imageId,
+      expiresAt: Date.now() + SESSION_TTL_MS
+    });
+
+    console.log(`[${sessionId}] sendImage cat=${movementType} facing=${facing} bytes=${dataUrl.length}`);
+
+    // Acknowledge synchronously so the iPad knows the sessionId BEFORE redirecting
+    if (typeof ack === 'function') ack({ ok: true, sessionId });
+
+    // Persisted shape for activeImages (no sessionId — that's a one-shot signal
+    // for the screenshot, not part of the floating image's identity).
+    const imageData = { id: imageId, dataUrl, movementType, facingDirection: facing, timestamp };
+
+    // Enforce max images limit in "maxPaintings" mode
     if (serverSettings.galleryMode === "maxPaintings" && activeImages.length >= serverSettings.maxImages) {
       const oldestImage = activeImages.shift();
-      console.log(`Max images reached (${serverSettings.maxImages}). Removing oldest: ${oldestImage.id}`);
-      
       if (serverSettings.maxImagesMode === "fade") {
-        // Signal to main canvas to fade out the oldest image
         io.emit("image:startFade", oldestImage.id);
       } else {
-        // Remove immediately from all displays
         io.emit("admin:removeImageFromMain", oldestImage.id);
       }
-      // Update gallery view in admin
       io.emit("admin:updateGallery", activeImages);
     }
-    
+
     activeImages.push(imageData);
-    
     io.emit("newImage", imageData);
     io.emit("admin:updateGallery", activeImages);
+    // The wall-PC sees this newImage event and renders it; the headless
+    // renderer (./lib/mainRenderer) is also subscribed via its own /main page,
+    // so its view stays in sync automatically. Screenshot is taken at finalize
+    // time directly off that headless page.
   });
 
   // Admin removes an image
@@ -240,10 +315,105 @@ io.on("connection", (socket) => {
       io.emit("admin:updateGallery", activeImages);
     }
   });
+
+  // Endscreen: user wants to save. Snapshots the headless wall page synchronously
+  // and writes everything (drawing.png, main_canvas.png, metadata.json) into the
+  // final folder.
+  socket.on("finalizeArtwork", async ({ sessionId, userName }, ack) => {
+    const reply = (payload) => { if (typeof ack === 'function') ack(payload); };
+
+    const sess = sessionStorage.get(sessionId);
+    if (!sess) {
+      console.warn(`[${sessionId}] finalize: session not found`);
+      reply({ ok: false, error: 'session_expired' });
+      return;
+    }
+
+    const trimmed = (typeof userName === 'string' ? userName : '').trim();
+    if (trimmed.length < 1 || trimmed.length > 50) {
+      reply({ ok: false, error: 'invalid_name' });
+      return;
+    }
+
+    // Build the final folder path (suffix-disambiguated)
+    const sanitizedName = sanitizeUsername(trimmed);
+    const dateStr = new Date(sess.timestamp)
+      .toISOString()
+      .replace(/[T:]/g, '_')
+      .split('.')[0];
+    let finalFolderName = `${sanitizedName}_${dateStr}`;
+    let finalPath = path.join(SAVE_PATH, finalFolderName);
+    let suffix = 1;
+    while (fs.existsSync(finalPath)) {
+      finalFolderName = `${sanitizedName}_${dateStr}_${suffix++}`;
+      finalPath = path.join(SAVE_PATH, finalFolderName);
+    }
+
+    // Capture the wall via the headless renderer. Settle a bit so the just-
+    // pushed newImage has been picked up by the headless page's animation loop.
+    let mainCanvasBuffer = null;
+    try {
+      const rendererUrl = `http://127.0.0.1:${PORT}/main`;
+      mainCanvasBuffer = await mainRenderer.captureMainScreenshot(rendererUrl, { settleMs: 700 });
+    } catch (err) {
+      console.error(`[${sessionId}] renderer error:`, err.message);
+    }
+
+    try {
+      fs.mkdirSync(finalPath, { recursive: true });
+      saveBase64Image(sess.drawingDataUrl, path.join(finalPath, 'drawing.png'));
+      if (mainCanvasBuffer) {
+        fs.writeFileSync(path.join(finalPath, 'main_canvas.png'), mainCanvasBuffer);
+      }
+
+      const metadata = {
+        name: trimmed,
+        sanitizedName,
+        timestamp: sess.timestamp,
+        date: new Date(sess.timestamp).toISOString(),
+        movementType: sess.movementType || null,
+        facingDirection: sess.facingDirection || 'right',
+        hasScreenshot: !!mainCanvasBuffer
+      };
+      fs.writeFileSync(path.join(finalPath, 'metadata.json'), JSON.stringify(metadata, null, 2));
+
+      console.log(`[${sessionId}] finalized → ${finalFolderName} (screenshot=${metadata.hasScreenshot})`);
+      sessionStorage.delete(sessionId);
+      reply({ ok: true, folder: finalFolderName, hasScreenshot: metadata.hasScreenshot });
+    } catch (err) {
+      console.error(`[${sessionId}] save failed:`, err);
+      reply({ ok: false, error: 'save_failed', detail: err.message });
+    }
+  });
+
+  // User chose not to save — drop the in-memory session, nothing on disk.
+  socket.on("discardArtwork", ({ sessionId }, ack) => {
+    if (sessionId && sessionStorage.has(sessionId)) {
+      sessionStorage.delete(sessionId);
+      console.log(`[${sessionId}] discarded by user`);
+    }
+    if (typeof ack === 'function') ack({ ok: true });
+  });
+
 });
 
 // ----------------------------------
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running: http://localhost:${PORT}`);
+
+  // Boot the headless renderer in the background so the first finalize is fast.
+  // We do this lazily after the HTTP server is listening, so the renderer can
+  // actually load /main from the same process.
+  mainRenderer.ensureReady(`http://127.0.0.1:${PORT}/main`).catch(err => {
+    console.error('[renderer] failed to boot:', err.message);
+  });
 });
+
+// Graceful shutdown — close Chromium so we don't leak processes
+function gracefulShutdown(signal) {
+  console.log(`Received ${signal}, shutting down…`);
+  mainRenderer.shutdown().finally(() => process.exit(0));
+}
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

@@ -7,8 +7,12 @@
 - git clone <br/>
 - cd Artmosphere <br/>
 - Node & npm installieren (https://nodejs.org/en/download) <br/>
-- npm install express socket.io<br/>
+- npm install (zieht express, socket.io und puppeteer)<br/>
 - node server.js <br/>
+
+**Speicherort der Kunstwerke:** Standardmäßig unter `~/.local/share/artmosphere/saved/` (XDG-Standard, kein sudo nötig). Override per Umgebungsvariable: `ARTMOSPHERE_SAVE_PATH=/eigener/pfad node server.js`.
+
+**Screenshot-Pipeline:** Beim Server-Start startet im Hintergrund automatisch ein Headless-Chromium (via Puppeteer), der eine eigene Kopie der `/main`-Seite hält. Beim Speichern eines Kunstwerks wird ein Screenshot **dieses** Headless-Browsers in `main_canvas.png` geschrieben — der Anzeige-PC an der Wand muss dafür weder offen noch im Vordergrund sein. In Docker-Slim-Containern müssen die Chromium-Abhängigkeiten (`libnss3`, `libxss1`, `libasound2`, `libatk-bridge2.0-0`, `libgbm1` etc.) vorhanden sein.
 
 ## Update
 
@@ -22,75 +26,69 @@
 
 ## Developer Guide
 
-### Zwei iPad-Systeme: ipad.html vs. ipad2.html
+### Kategorien-System (`/ipad`)
 
-**Artmosphere** verfügt über zwei unterschiedliche Zeichenmodi, die je nach Theme verwendet werden:
+Der iPad-Flow besteht aus **einer** kategorienbasierten Auswahl:
 
-#### 1. **ipad.html** (Zonen-basiert) - klassisches System
-- **Themes:** `ocean`, `jungle` (und andere zonenanbasierte Themes)
-- **Funktionsweise:** Benutzer wählt eine von **3 vertikalen Zonen** auf dem Bildschirm
-- **Bewegungslogik:** Bilder bounchen **frei innerhalb der gewählten Zone** (chaotische Bewegung)
-- **Einsatz:** Für Szenarien mit Unterwasser, Dschungel, etc.
-
-#### 2. **ipad2.html** (Kategorien-basiert) - neues System
-- **Themes:** `stadt` (Stadtszene)
-- **Funktionsweise:** Benutzer wählt eine **Kategorie** (Fußgänger 🚶, Auto 🚗, Flugzeug ✈️)
-- **Bewegungslogik:** Bilder bewegen sich **kategoriespezifisch**:
-  - **✈️ Flugzeug:** oben (Luft), schnell, linear links-rechts
-  - **🚗 Auto:** unten (Straße), normal schnell, linear links-rechts
-  - **🚶 Fußgänger:** unten (Gehweg), LANGSAM, linear links-rechts
-- **Einsatz:** Für realistische, zielgerichtete Bewegungsmuster
+- Auf `/ipad` wählt der Besucher eine **Kategorie** (z.B. Fußgänger 🚶, Auto 🚗, Flugzeug ✈️) aus dynamisch generierten Cards.
+- Die Kategorie bestimmt vertikalen Bereich (`yMinPct`/`yMaxPct`) und Geschwindigkeit (`speedMin`/`speedMax`) der Bewegung auf dem `/main` Display.
+- Beim Senden geht `{ dataUrl, movementType }` an den Server; `movementType` ist die `id` der Kategorie aus dem aktiven Theme.
 
 ### Workflow für Administratoren
 
-1. **Im Admin Panel** (`/admin`):
-   - Theme auswählen: z.B. `jungle` oder `stadt`
-   - Painting-Einstellungen (Layer Distribution, Gallery Mode, Max Paintings)
+1. **Admin Panel** (`/admin`): Theme auswählen, Layer-Distribution / Gallery Mode / Max Paintings einstellen.
+2. **Auf dem iPad** (`/ipad`): Kategorie wählen → zeichnen → Senden → Name eingeben.
+3. **Main Display** (`/main`): zeigt alle Malereien mit kategoriespezifischer Bewegung.
 
-2. **Auf dem iPad** (je nach Theme):
-   - **Jungle/Ocean Theme:** Verwende `/ipad` → wähle Zone → zeichne
-   - **Stadt Theme:** Verwende `/ipad2` → wähle Kategorie → zeichne
-
-3. **Main Display** (`/main`):
-   - Zeigt alle Malereien mit korrekter Bewegungslogik basierend auf System (Zone vs. Kategorie)
-
-### Datenfluss im Backend
-
-- **server.js:** Socket-Handler für `sendImage` akzeptiert beide Formate:
-  - `{ dataUrl, zoneId }` für ipad.html
-  - `{ dataUrl, movementType }` für ipad2.html
-
-- **main.js:** `FloatingImage` Klasse erkennt den Typ und wendet passende Bewegungslogik an
-
-### Theme-Struktur in config.json
+### Theme-Struktur in `public/themes/config.json`
 
 ```json
 {
-  "activeTheme": "jungle",
+  "activeTheme": "stadt",
   "themes": {
-    "jungle": {
-      "image": "jungle.png",
-      "zones": [
-        { "id": "top", "yStartPct": 0, "yEndPct": 40 },
-        { "id": "middle", "yStartPct": 40, "yEndPct": 70 },
-        { "id": "bottom", "yStartPct": 70, "yEndPct": 100 }
-      ]
-    },
     "stadt": {
       "image": "stadt.png",
-      "zones": [...]  // default zones für ipad.html Support
+      "categories": [
+        { "id": "pedestrian", "icon": "🚶", "label": "Fußgänger", "style": "pedestrian",
+          "yMinPct": 67, "yMaxPct": 100, "speedMin": 0.10, "speedMax": 0.15,
+          "template": "/media/drawing-template-pedestrian.svg", "templateSize": "30% auto" },
+        { "id": "car",        "icon": "🚗", "label": "Auto",     "style": "car",
+          "yMinPct": 50, "yMaxPct": 60,  "speedMin": 0.22, "speedMax": 0.35,
+          "template": "/media/drawing-template-car.svg",       "templateSize": "88% auto" },
+        { "id": "airplane",   "icon": "✈️", "label": "Flugzeug", "style": "airplane",
+          "yMinPct": 4,  "yMaxPct": 30,  "speedMin": 0.22, "speedMax": 0.36,
+          "template": "/media/drawing-template-airplane.svg",  "templateSize": "72% auto" },
+        { "id": "watercraft", "icon": "🚤", "label": "Wasserverkehr", "style": "watercraft",
+          "yMinPct": 72, "yMaxPct": 90,  "speedMin": 0.16, "speedMax": 0.26,
+          "template": "/media/drawing-template-watercraft.svg", "templateSize": "50% auto" }
+      ]
     }
   }
 }
 ```
 
-### Neue Themes/Kategorien hinzufügen
+`config.json` ist `.gitignored` und lebt nur lokal/auf der Prod-Maschine.
 
-**Für Zone-basierte Themes (ipad.html):**
-- Theme zu config.json hinzufügen mit entsprechenden Zones
-- Image in `/public/themes/` ablegen
+**Felder pro Kategorie:**
+- `id` — eindeutige ID, wird als `movementType` über das Socket geschickt
+- `icon` / `label` — Anzeige auf der Auswahl-Card
+- `style` — bestimmt Bewegungs- und Render-Flair in `main.js`. Verfügbare Werte: `pedestrian` (langsam, geradlinig), `car` (Spurwechsel + Schatten), `airplane` (Banking + Kondensstreifen), `watercraft` (Wellen-Bob + Wake), `plain` (statisch). Eine neue `style`-Variante erfordert Code in `FloatingImage`.
+- `yMinPct` / `yMaxPct` — vertikales Band (0–100% der Canvas-Höhe)
+- `speedMin` / `speedMax` — horizontale Grundgeschwindigkeit
+- `template` / `templateSize` — optionale Schablonen-SVG hinter dem Zeichen-Canvas (Helfer für die Besucher) und CSS `background-size`-String
 
-**Für Kategorien-basierte Themes (ipad2.html):**
-- `movementType` in main.js `FloatingImage` Klasse hinzufügen
-- Bewegungslogik in `initializeMovement()` und `update()` definieren
+### Neues Theme hinzufügen
+
+1. Hintergrundbild in `public/themes/<theme>.png` ablegen.
+2. Theme-Eintrag in `public/themes/config.json` ergänzen, mit Kategorien (siehe Felder oben). Wiederverwendbare `style`-Werte erfordern keinen Code, neue `style`-Werte schon.
+3. Optional Schablonen-SVGs in `public/media/` ablegen.
+4. Im Admin-Panel auf das neue Theme umschalten — `/ipad` und `/main` aktualisieren sich automatisch via `config:changed`.
+
+### Zeichen-Tools auf `/ipad`
+
+- Stift (frei zeichnen), Füllen (Flood-Fill, ~24-Toleranz), Radierer (Composite `destination-out`)
+- Undo / Redo (35 Schritte; History wird beim Senden / Kategorie-Wechsel zurückgesetzt)
+- Stiftgröße 1–30 Pixel
+- Richtungsauswahl `Fährt: → / ←` — wird mit dem Bild gesendet als `facingDirection` und vom Display kombiniert mit der aktuellen Bewegungsrichtung gespiegelt
+- Schablonen-Overlay pro Kategorie (helle Vorlage hinter dem Canvas, beim Senden wird nur das Zeichen-Layer übertragen)
 
