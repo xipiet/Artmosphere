@@ -2,21 +2,32 @@
 <html lang="de">
   <head>
     <meta charset="utf-8" />
-    <title>iPad Draw</title>
+    <title>iPad Draw - Kategorien</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <link rel="stylesheet" href="/css/ipad.css">
+    <link rel="stylesheet" href="/css/ipad2.css">
   </head>
 
   <body>
-    <!-- THEME VIEW (Zone Selection) -->
-    <div id="themeView">
-      <button id="helpBtnTheme" class="help-btn">?</button>
+    <!-- CATEGORY SELECTION VIEW -->
+    <div id="categoryView">
+      <button id="helpBtnCategory" class="help-btn">?</button>
       <div id="viewport">
         <canvas id="bgCanvas"></canvas>
-        <div id="zone0" class="zone-overlay zone-0" style="top:0; height:33%;"></div>
-        <div id="zone1" class="zone-overlay zone-1" style="top:33%; height:34%;"></div>
-        <div id="zone2" class="zone-overlay zone-2" style="top:67%; height:33%;"></div>
+        <div id="cardsContainer">
+          <div class="card" data-category="pedestrian">
+            <div class="card-icon">🚶</div>
+            <div class="card-title">Fußgänger</div>
+          </div>
+          <div class="card" data-category="car">
+            <div class="card-icon">🚗</div>
+            <div class="card-title">Auto</div>
+          </div>
+          <div class="card" data-category="airplane">
+            <div class="card-icon">✈️</div>
+            <div class="card-title">Flugzeug</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -42,7 +53,7 @@
       <canvas id="drawArea" width="800" height="500"></canvas>
 
       <div id="controls">
-        <button id="back">Back to Zones</button>
+        <button id="back">Back to Categories</button>
         <button id="clear">Clear</button>
         <button id="send">Send</button>
         <button id="screenshot">Screenshot Draw</button>
@@ -54,14 +65,14 @@
       <div class="modal-content">
         <button class="modal-close">&times;</button>
         <h2>Wie funktioniert es?</h2>
-        <p>Du befindest dich jetzt in der kreativen Zone unserer Atmosphere Installation. Das Thema dieses Raums ist eine <span id="themeName">Unterwasserwelt</span>, die aus verschiedenen Bereichen besteht.</p>
-        <p>Wähle zuerst den Bereich, in dem dein Kunstwerk erscheinen soll. Danach gelangst du zu einer Zeichenfläche, auf der du dein eigenes Objekt malen kannst – ganz so, wie du es dir vorstellen würdest.</p>
-        <p>Wenn du fertig bist, schickst du deine Zeichnung ab. Sie wird anschließend in den echten Raum projiziert und als Teil des digitalen, animierten 3D-Objekts zum Leben erweckt.</p>
+        <p>Du befindest dich jetzt in der kreativen Zone unserer Atmosphere Installation. Das Thema dieses Raums ist eine <span id="themeName">Atmosphäre</span>.</p>
+        <p>Wähle zuerst eine Kategorie: Fußgänger, Auto oder Flugzeug. Dann gelangst du zu einer Zeichenfläche, auf der du dein eigenes Kunstwerk malen kannst.</p>
+        <p>Deine Zeichnung wird anschließend in den echten Raum projiziert und bewegt sich je nach gewählter Kategorie: Fußgänger gehen, Autos fahren, Flugzeuge fliegen!</p>
         <p>Viel Spaß dabei, deiner Fantasie freien Lauf zu lassen!</p>
       </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/ipad.js" defer></script>
+    <script src="/js/ipad2.js" defer></script>
   </body>
 </html>

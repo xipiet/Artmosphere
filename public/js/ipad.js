@@ -1,11 +1,11 @@
 const socket = io();
 
-// Theme view elements
-const themeView = document.getElementById('themeView');
+// Category view elements
+const categoryView = document.getElementById('categoryView');
 const drawView = document.getElementById('drawView');
 const bgCanvas = document.getElementById('bgCanvas');
 const bgCtx = bgCanvas.getContext('2d');
-const zoneEls = [document.getElementById('zone0'), document.getElementById('zone1'), document.getElementById('zone2')];
+const cardElements = document.querySelectorAll('.card');
 
 // Drawing view elements
 const canvas = document.getElementById('drawArea');
@@ -18,7 +18,7 @@ let drawing = false;
 let currentColor = "#000000";
 let currentSize = 4;
 let eraseMode = false;
-let selectedZone = null;
+let selectedCategory = null;
 
 // THEME DISPLAY
 let bgImg = new Image();
@@ -38,26 +38,9 @@ function resizeBg() {
     bgCanvas.width = window.innerWidth;
     bgCanvas.height = window.innerHeight;
     
-    applyZoneLayout();
     if (theme) drawBgImage();
 }
 window.addEventListener('resize', resizeBg);
-
-function applyZoneLayout() {
-    for (let i=0;i<3;i++){
-        const el = zoneEls[i];
-        if (!theme || !theme.zones || !theme.zones[i]) { 
-            el.style.display='none'; 
-            continue; 
-        }
-        el.style.display='flex';
-        const z = theme.zones[i];
-        const start = z.yStartPct;
-        const end = z.yEndPct;
-        el.style.top = (start) + '%';
-        el.style.height = (end - start) + '%';
-    }
-}
 
 // SOCKET EVENTS
 socket.on('app:init', (d) => {
@@ -97,26 +80,23 @@ function updateThemeNameInHelp() {
 }
 
 function loadBgAndApply() {
-    if (!theme) return;
-    const imageRef = theme.image;
+    // iPad2 always uses stadt.png as background
     bgImg = new Image();
-    bgImg.src = '/theme-image/' + encodeURIComponent(imageRef);
+    bgImg.src = '/theme-image/stadt.png';
     bgImg.onload = () => { resizeBg(); drawBgImage(); };
-    bgImg.onerror = () => { console.error("Failed to load image:", imageRef); };
-    applyZoneLayout();
+    bgImg.onerror = () => { console.error("Failed to load background image: stadt.png"); };
 }
 
-// ZONE CLICK HANDLERS
-for (let i=0;i<3;i++){
-    zoneEls[i].addEventListener('click', () => {
-        if (!theme || !theme.zones[i]) return;
-        selectedZone = theme.zones[i].id;
+// CARD CLICK HANDLERS
+cardElements.forEach(card => {
+    card.addEventListener('click', () => {
+        selectedCategory = card.dataset.category;
         enterDrawingMode();
     });
-}
+});
 
 function enterDrawingMode() {
-    themeView.style.display = 'none';
+    categoryView.style.display = 'none';
     drawView.style.display = 'flex';
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     currentColor = "#000000";
@@ -178,7 +158,7 @@ document.getElementById("erase").addEventListener("click", () => {
 
 document.getElementById("back").addEventListener("click", () => {
     drawView.style.display = 'none';
-    themeView.style.display = 'flex';
+    categoryView.style.display = 'flex';
 });
 
 document.getElementById("clear").addEventListener("click", () => {
@@ -187,7 +167,10 @@ document.getElementById("clear").addEventListener("click", () => {
 
 document.getElementById("send").addEventListener("click", () => {
     const dataUrl = canvas.toDataURL("image/png");
-    socket.emit("sendImage", { dataUrl, zoneId: selectedZone });
+    socket.emit("sendImage", { 
+        dataUrl, 
+        movementType: selectedCategory  // Send category instead of zoneId
+    });
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     window.location.href = "/ipad-endscreen";
 });
@@ -201,7 +184,7 @@ document.getElementById("screenshot").addEventListener("click", () => {
 
 // HELP MODAL
 const helpModal = document.getElementById("helpModal");
-const helpBtnTheme = document.getElementById("helpBtnTheme");
+const helpBtnCategory = document.getElementById("helpBtnCategory");
 const helpBtnDraw = document.getElementById("helpBtnDraw");
 const modalClose = document.querySelector(".modal-close");
 
@@ -213,7 +196,7 @@ function closeHelpModal() {
     helpModal.classList.remove("show");
 }
 
-helpBtnTheme.addEventListener("click", openHelpModal);
+helpBtnCategory.addEventListener("click", openHelpModal);
 helpBtnDraw.addEventListener("click", openHelpModal);
 modalClose.addEventListener("click", closeHelpModal);
 
