@@ -22,9 +22,20 @@
     <!-- Hauptinhalt -->
     <main>
         <h1>Geschafft!</h1>
-        <p>Dein Kunstwerk wird gleich angezeigt!</p>
+        <p id="mainMessage">Dein Kunstwerk wird gleich angezeigt!</p>
 
-        <!-- Button: Noch etwas malen -->
+        <!-- Artwork Name Input Section -->
+        <div class="artwork-form" id="artworkForm">
+            <label for="artworkName">Dein Name:</label>
+            <input type="text" id="artworkName" placeholder="z.B. Peter" maxlength="50">
+            <div class="artwork-form-actions">
+                <button id="saveArtwork" class="button button-primary" disabled>Speichern</button>
+                <button id="discardArtwork" class="button button-secondary" type="button">Verwerfen</button>
+            </div>
+            <!-- Inline-Feedback (Häkchen / Status), wird nach Speichern gezeigt -->
+            <div id="saveStatus" class="save-status" role="status" aria-live="polite"></div>
+        </div>
+
         <a href="/ipad" class="button">Noch etwas malen</a>
 
 <!-- Animation: PNG-Bild bewegt sich von links nach rechts -->
@@ -48,6 +59,7 @@
         
     </main>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script src="js/ipadEndscreen.js"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@
     <title>iPad Draw - Kategorien</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <link rel="stylesheet" href="/css/ipad2.css">
+    <link rel="stylesheet" href="/css/ipad.css">
   </head>
 
   <body>
@@ -14,20 +14,7 @@
       <button id="helpBtnCategory" class="help-btn">?</button>
       <div id="viewport">
         <canvas id="bgCanvas"></canvas>
-        <div id="cardsContainer">
-          <div class="card" data-category="pedestrian">
-            <div class="card-icon">🚶</div>
-            <div class="card-title">Fußgänger</div>
-          </div>
-          <div class="card" data-category="car">
-            <div class="card-icon">🚗</div>
-            <div class="card-title">Auto</div>
-          </div>
-          <div class="card" data-category="airplane">
-            <div class="card-icon">✈️</div>
-            <div class="card-title">Flugzeug</div>
-          </div>
-        </div>
+        <div id="cardsContainer"></div>
       </div>
     </div>
 
@@ -47,16 +34,31 @@
           <label for="sizeSlider">Stift:</label>
           <input type="range" id="sizeSlider" min="1" max="30" value="4">
         </div>
-        <button id="erase">Eraser</button>
+        <div id="toolPicker" aria-label="Werkzeuge">
+          <button id="drawTool" class="tool-btn active" type="button">Stift</button>
+          <button id="fillTool" class="tool-btn" type="button">Füllen</button>
+          <button id="erase" class="tool-btn danger" type="button">Radierer</button>
+        </div>
+        <div id="historyControls" aria-label="Zeichenschritte">
+          <button id="undoBtn" class="history-btn" type="button" disabled>Zurück</button>
+          <button id="redoBtn" class="history-btn" type="button" disabled>Vor</button>
+        </div>
+        <div id="directionPicker" aria-label="Start-Fahrtrichtung">
+          <span>Fährt:</span>
+          <button class="direction-btn active" type="button" data-facing="right">→</button>
+          <button class="direction-btn" type="button" data-facing="left">←</button>
+        </div>
       </div>
 
-      <canvas id="drawArea" width="800" height="500"></canvas>
+      <div id="drawingCanvasFrame">
+        <div id="drawingTemplate" aria-hidden="true"></div>
+        <canvas id="drawArea" width="800" height="500"></canvas>
+      </div>
 
       <div id="controls">
         <button id="back">Back to Categories</button>
         <button id="clear">Clear</button>
         <button id="send">Send</button>
-        <button id="screenshot">Screenshot Draw</button>
       </div>
     </div>
 
@@ -66,13 +68,13 @@
         <button class="modal-close">&times;</button>
         <h2>Wie funktioniert es?</h2>
         <p>Du befindest dich jetzt in der kreativen Zone unserer Atmosphere Installation. Das Thema dieses Raums ist eine <span id="themeName">Atmosphäre</span>.</p>
-        <p>Wähle zuerst eine Kategorie: Fußgänger, Auto oder Flugzeug. Dann gelangst du zu einer Zeichenfläche, auf der du dein eigenes Kunstwerk malen kannst.</p>
-        <p>Deine Zeichnung wird anschließend in den echten Raum projiziert und bewegt sich je nach gewählter Kategorie: Fußgänger gehen, Autos fahren, Flugzeuge fliegen!</p>
+        <p>Wähle zuerst eine Kategorie: Fußgänger, Auto, Flugzeug oder Wasserverkehr. Dann gelangst du zu einer Zeichenfläche, auf der du dein eigenes Kunstwerk malen kannst.</p>
+        <p>Deine Zeichnung wird anschließend in den echten Raum projiziert und bewegt sich je nach gewählter Kategorie: Fußgänger gehen, Autos fahren, Flugzeuge fliegen, Boote und Jetskis fahren durchs Wasser!</p>
         <p>Viel Spaß dabei, deiner Fantasie freien Lauf zu lassen!</p>
       </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/ipad2.js" defer></script>
+    <script src="/js/ipad.js" defer></script>
   </body>
 </html>

@@ -5,11 +5,13 @@ const categoryView = document.getElementById('categoryView');
 const drawView = document.getElementById('drawView');
 const bgCanvas = document.getElementById('bgCanvas');
 const bgCtx = bgCanvas.getContext('2d');
-const cardElements = document.querySelectorAll('.card');
+const cardsContainer = document.getElementById('cardsContainer');
+const drawingTemplate = document.getElementById('drawingTemplate');
 
 // Drawing view elements
 const canvas = document.getElementById('drawArea');
 const ctx = canvas.getContext('2d');
+const sizeSlider = document.getElementById('sizeSlider');
 
 let config = null;
 let activeThemeName = null;
@@ -17,8 +19,13 @@ let theme = null;
 let drawing = false;
 let currentColor = "#000000";
 let currentSize = 4;
-let eraseMode = false;
-let selectedCategory = null;
+let currentTool = "draw";
+let selectedCategory = null;       // category id (string)
+let selectedCategoryDef = null;    // full category object from config
+let facingDirection = "right";
+const undoStack = [];
+const redoStack = [];
+const MAX_HISTORY_STEPS = 35;
 
 // THEME DISPLAY
 let bgImg = new Image();
@@ -34,10 +41,8 @@ function drawBgImage() {
 }
 
 function resizeBg() {
-    // Set canvas resolution to full viewport
     bgCanvas.width = window.innerWidth;
     bgCanvas.height = window.innerHeight;
-    
     if (theme) drawBgImage();
 }
 window.addEventListener('resize', resizeBg);
@@ -70,42 +75,73 @@ function updateThemeNameInHelp() {
         'jungle': 'Dschungelwelt',
         'forest': 'Waldwelt',
         'desert': 'Wüstenwelt',
-        'space': 'Weltraum'
+        'space': 'Weltraum',
+        'stadt': 'Stadtwelt'
     };
     const displayName = themeDisplayNames[activeThemeName] || activeThemeName;
     const themeNameEl = document.getElementById('themeName');
-    if (themeNameEl) {
-        themeNameEl.textContent = displayName;
-    }
+    if (themeNameEl) themeNameEl.textContent = displayName;
 }
 
 function loadBgAndApply() {
-    // iPad2 always uses stadt.png as background
+    if (!theme || !theme.image) return;
     bgImg = new Image();
-    bgImg.src = '/theme-image/stadt.png';
+    bgImg.src = '/theme-image/' + encodeURIComponent(theme.image);
     bgImg.onload = () => { resizeBg(); drawBgImage(); };
-    bgImg.onerror = () => { console.error("Failed to load background image: stadt.png"); };
+    bgImg.onerror = () => { console.error("Failed to load background image:", theme.image); };
+    renderCategoryCards(theme.categories || []);
 }
 
-// CARD CLICK HANDLERS
-cardElements.forEach(card => {
-    card.addEventListener('click', () => {
-        selectedCategory = card.dataset.category;
-        enterDrawingMode();
+function renderCategoryCards(categories) {
+    cardsContainer.innerHTML = '';
+    categories.forEach(cat => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.category = cat.id;
+
+        const icon = document.createElement('div');
+        icon.className = 'card-icon';
+        icon.textContent = cat.icon || '';
+
+        const title = document.createElement('div');
+        title.className = 'card-title';
+        title.textContent = cat.label || cat.id;
+
+        card.appendChild(icon);
+        card.appendChild(title);
+        card.addEventListener('click', () => {
+            selectedCategory = cat.id;
+            selectedCategoryDef = cat;
+            enterDrawingMode();
+        });
+        cardsContainer.appendChild(card);
     });
-});
+}
+
+function applyTemplateForCategory(cat) {
+    if (cat && cat.template) {
+        drawView.style.setProperty('--drawing-template-image', `url("${cat.template}")`);
+    } else {
+        drawView.style.setProperty('--drawing-template-image', 'none');
+    }
+    drawView.style.setProperty('--drawing-template-size', (cat && cat.templateSize) || '88% auto');
+}
 
 function enterDrawingMode() {
+    drawView.dataset.category = selectedCategory;
+    applyTemplateForCategory(selectedCategoryDef);
     categoryView.style.display = 'none';
     drawView.style.display = 'flex';
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     currentColor = "#000000";
     currentSize = 4;
-    eraseMode = false;
+    sizeSlider.value = currentSize;
+    setTool("draw");
+    setActiveColorButton(currentColor);
+    setFacingDirection("right");
+    resetHistory();
 }
 
-// DRAWING HANDLERS
-const sizeSlider = document.getElementById("sizeSlider");
 sizeSlider.addEventListener("input", () => {
     currentSize = parseInt(sizeSlider.value);
 });
@@ -114,72 +150,256 @@ function getPos(e) {
     const rect = canvas.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: clientX - rect.left, y: clientY - rect.top };
+    return {
+        x: (clientX - rect.left) * (canvas.width / rect.width),
+        y: (clientY - rect.top) * (canvas.height / rect.height)
+    };
 }
 
 function startDraw(e) {
+    e.preventDefault();
+    const { x, y } = getPos(e);
+    if (currentTool === "fill") {
+        saveHistoryStep();
+        floodFill(Math.floor(x), Math.floor(y), hexToRgba(currentColor));
+        return;
+    }
+
+    saveHistoryStep();
     drawing = true;
     ctx.beginPath();
-    const { x, y } = getPos(e);
     ctx.moveTo(x, y);
 }
 
 function draw(e) {
+    e.preventDefault();
     if (!drawing) return;
+    if (currentTool === "fill") return;
+
     const { x, y } = getPos(e);
     ctx.lineTo(x, y);
-    ctx.strokeStyle = eraseMode ? "#ffffff" : currentColor;
+    ctx.globalCompositeOperation = currentTool === "erase" ? "destination-out" : "source-over";
+    ctx.strokeStyle = currentTool === "erase" ? "rgba(0,0,0,1)" : currentColor;
     ctx.lineWidth = currentSize;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.stroke();
+    ctx.globalCompositeOperation = "source-over";
 }
 
-function endDraw() { drawing = false; }
+function endDraw() {
+    drawing = false;
+    ctx.globalCompositeOperation = "source-over";
+}
+
+function captureCanvasState() {
+    return ctx.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+function restoreCanvasState(state) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.putImageData(state, 0, 0);
+}
+
+function updateHistoryButtons() {
+    document.getElementById("undoBtn").disabled = undoStack.length === 0;
+    document.getElementById("redoBtn").disabled = redoStack.length === 0;
+}
+
+function resetHistory() {
+    undoStack.length = 0;
+    redoStack.length = 0;
+    updateHistoryButtons();
+}
+
+function saveHistoryStep() {
+    undoStack.push(captureCanvasState());
+    if (undoStack.length > MAX_HISTORY_STEPS) undoStack.shift();
+    redoStack.length = 0;
+    updateHistoryButtons();
+}
+
+function undoCanvas() {
+    if (undoStack.length === 0) return;
+    redoStack.push(captureCanvasState());
+    restoreCanvasState(undoStack.pop());
+    updateHistoryButtons();
+}
+
+function redoCanvas() {
+    if (redoStack.length === 0) return;
+    undoStack.push(captureCanvasState());
+    restoreCanvasState(redoStack.pop());
+    updateHistoryButtons();
+}
 
 canvas.addEventListener("mousedown", startDraw);
 canvas.addEventListener("mousemove", draw);
 canvas.addEventListener("mouseup", endDraw);
-
+canvas.addEventListener("mouseleave", endDraw);
 canvas.addEventListener("touchstart", startDraw, { passive:false });
 canvas.addEventListener("touchmove", draw, { passive:false });
 canvas.addEventListener("touchend", endDraw);
+canvas.addEventListener("touchcancel", endDraw);
 
 document.querySelectorAll(".color-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-        eraseMode = false;
         currentColor = btn.dataset.color;
+        setActiveColorButton(currentColor);
+        if (currentTool === "erase") setTool("draw");
     });
 });
 
-document.getElementById("erase").addEventListener("click", () => {
-    eraseMode = true;
+function setActiveColorButton(color) {
+    document.querySelectorAll(".color-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.color === color);
+    });
+}
+
+function setTool(tool) {
+    currentTool = tool;
+    document.querySelectorAll(".tool-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.id === `${tool}Tool` || (tool === "erase" && btn.id === "erase"));
+    });
+}
+
+document.getElementById("drawTool").addEventListener("click", () => setTool("draw"));
+document.getElementById("fillTool").addEventListener("click", () => setTool("fill"));
+document.getElementById("erase").addEventListener("click", () => setTool("erase"));
+document.getElementById("undoBtn").addEventListener("click", undoCanvas);
+document.getElementById("redoBtn").addEventListener("click", redoCanvas);
+
+function hexToRgba(hex) {
+    const value = hex.replace("#", "");
+    const full = value.length === 3
+        ? value.split("").map(ch => ch + ch).join("")
+        : value;
+
+    return [
+        parseInt(full.slice(0, 2), 16),
+        parseInt(full.slice(2, 4), 16),
+        parseInt(full.slice(4, 6), 16),
+        255
+    ];
+}
+
+function colorsMatch(data, index, target, tolerance) {
+    return Math.abs(data[index] - target[0]) <= tolerance &&
+        Math.abs(data[index + 1] - target[1]) <= tolerance &&
+        Math.abs(data[index + 2] - target[2]) <= tolerance &&
+        Math.abs(data[index + 3] - target[3]) <= tolerance;
+}
+
+function floodFill(startX, startY, fillColor) {
+    if (startX < 0 || startY < 0 || startX >= canvas.width || startY >= canvas.height) return;
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    const startIndex = (startY * canvas.width + startX) * 4;
+    const targetColor = [
+        data[startIndex],
+        data[startIndex + 1],
+        data[startIndex + 2],
+        data[startIndex + 3]
+    ];
+    const tolerance = targetColor[3] === 0 ? 0 : 24;
+
+    if (
+        Math.abs(targetColor[0] - fillColor[0]) <= tolerance &&
+        Math.abs(targetColor[1] - fillColor[1]) <= tolerance &&
+        Math.abs(targetColor[2] - fillColor[2]) <= tolerance &&
+        Math.abs(targetColor[3] - fillColor[3]) <= tolerance
+    ) {
+        return;
+    }
+
+    const stack = new Int32Array(canvas.width * canvas.height * 4);
+    let stackSize = 0;
+    const visited = new Uint8Array(canvas.width * canvas.height);
+    stack[stackSize++] = startY * canvas.width + startX;
+
+    while (stackSize > 0) {
+        const pixel = stack[--stackSize];
+        const x = pixel % canvas.width;
+        const y = Math.floor(pixel / canvas.width);
+        if (x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) continue;
+
+        if (visited[pixel]) continue;
+        visited[pixel] = 1;
+
+        const index = pixel * 4;
+        if (!colorsMatch(data, index, targetColor, tolerance)) continue;
+
+        data[index] = fillColor[0];
+        data[index + 1] = fillColor[1];
+        data[index + 2] = fillColor[2];
+        data[index + 3] = fillColor[3];
+
+        if (x + 1 < canvas.width) stack[stackSize++] = pixel + 1;
+        if (x - 1 >= 0) stack[stackSize++] = pixel - 1;
+        if (y + 1 < canvas.height) stack[stackSize++] = pixel + canvas.width;
+        if (y - 1 >= 0) stack[stackSize++] = pixel - canvas.width;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+}
+
+function setFacingDirection(direction) {
+    facingDirection = direction === "left" ? "left" : "right";
+    drawView.dataset.facing = facingDirection;
+    document.querySelectorAll(".direction-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.facing === facingDirection);
+    });
+}
+
+document.querySelectorAll(".direction-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        setFacingDirection(btn.dataset.facing);
+    });
 });
 
 document.getElementById("back").addEventListener("click", () => {
     drawView.style.display = 'none';
     categoryView.style.display = 'flex';
+    delete drawView.dataset.category;
+    delete drawView.dataset.facing;
 });
 
 document.getElementById("clear").addEventListener("click", () => {
+    saveHistoryStep();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 });
 
 document.getElementById("send").addEventListener("click", () => {
-    const dataUrl = canvas.toDataURL("image/png");
-    socket.emit("sendImage", { 
-        dataUrl, 
-        movementType: selectedCategory  // Send category instead of zoneId
-    });
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    window.location.href = "/ipad-endscreen";
-});
+    const sendBtn = document.getElementById("send");
+    if (sendBtn.disabled) return;
 
-document.getElementById("screenshot").addEventListener("click", () => {
-    const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
-    link.download = `drawing_${Date.now()}.png`;
-    link.click();
+    const dataUrl = canvas.toDataURL("image/png");
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Wird gesendet…";
+
+    // Wait for server ack to get the sessionId BEFORE redirecting. This avoids
+    // the old race where the endscreen loaded before the session was registered.
+    socket.timeout(10000).emit("sendImage",
+        { dataUrl, movementType: selectedCategory, facingDirection },
+        (err, response) => {
+            sendBtn.disabled = false;
+            sendBtn.textContent = "Send";
+
+            if (err) {
+                alert("Verbindungsfehler beim Senden — bitte nochmal versuchen.");
+                return;
+            }
+            if (!response || !response.ok || !response.sessionId) {
+                alert("Senden fehlgeschlagen: " + ((response && response.error) || "unbekannt"));
+                return;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            resetHistory();
+            window.location.href = "/ipad-endscreen?sid=" + encodeURIComponent(response.sessionId);
+        }
+    );
 });
 
 // HELP MODAL
@@ -188,22 +408,15 @@ const helpBtnCategory = document.getElementById("helpBtnCategory");
 const helpBtnDraw = document.getElementById("helpBtnDraw");
 const modalClose = document.querySelector(".modal-close");
 
-function openHelpModal() {
-    helpModal.classList.add("show");
-}
-
-function closeHelpModal() {
-    helpModal.classList.remove("show");
-}
+function openHelpModal() { helpModal.classList.add("show"); }
+function closeHelpModal() { helpModal.classList.remove("show"); }
 
 helpBtnCategory.addEventListener("click", openHelpModal);
 helpBtnDraw.addEventListener("click", openHelpModal);
 modalClose.addEventListener("click", closeHelpModal);
 
 helpModal.addEventListener("click", (e) => {
-    if (e.target === helpModal) {
-        closeHelpModal();
-    }
+    if (e.target === helpModal) closeHelpModal();
 });
 
 setTimeout(resizeBg, 120);

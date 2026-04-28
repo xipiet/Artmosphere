@@ -61,6 +61,144 @@ main p {
     margin: 10px 0 30px 0;
 }
 
+/* Artwork Name Form */
+.artwork-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    margin: 20px 0;
+    width: 100%;
+    max-width: 400px;
+}
+
+.artwork-form label {
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.artwork-form input {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 5px;
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    box-sizing: border-box;
+}
+
+.artwork-form input::placeholder {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.artwork-form input:focus {
+    outline: none;
+    border-color: #ffa260;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.artwork-form-actions {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    max-width: 400px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.artwork-form-actions .button {
+    margin-bottom: 0;
+    flex: 1 1 160px;
+    min-width: 0;
+    max-width: 220px;
+    padding: 15px 20px;
+    font-size: 1.1rem;
+}
+
+.button-primary {
+    background: linear-gradient(135deg, #00d4ff, #0099ff);
+}
+
+.button-primary:hover:not(:disabled) {
+    transform: scale(1.05);
+}
+
+.button-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: saturate(0.4);
+}
+
+.button-secondary {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.45);
+}
+
+.button-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.28);
+    transform: scale(1.03);
+}
+
+.button-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Inline-Save-Status (Häkchen + Text statt Modal) */
+.save-status {
+    min-height: 28px;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.save-status.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.save-status.success {
+    color: #00ff9d;
+}
+
+.save-status.error {
+    color: #ff7d7d;
+}
+
+.save-status.pending {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.save-status .check-icon {
+    display: inline-flex;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #00ff9d;
+    color: #003322;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 900;
+    box-shadow: 0 0 0 4px rgba(0, 255, 157, 0.18);
+    animation: checkPop 0.45s ease-out;
+}
+
+@keyframes checkPop {
+    0% { transform: scale(0.4); opacity: 0; }
+    60% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
 .button {
     background: linear-gradient(135deg, #aa60ff, #ffa260);
     background-size: 100% auto;
@@ -195,4 +333,95 @@ main p {
      100% {
          opacity: 0;
      }
+}
+
+/* Success Modal */
+.success-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    opacity: 0;
+    animation: fadeInModal 0.3s ease-out forwards;
+}
+
+@keyframes fadeInModal {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.success-content {
+    background: linear-gradient(135deg, rgba(50, 150, 255, 0.95), rgba(100, 200, 255, 0.95));
+    border-radius: 20px;
+    padding: 50px 40px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideInModal 0.4s ease-out;
+    max-width: 500px;
+    width: 90%;
+}
+
+@keyframes slideInModal {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.success-icon {
+    font-size: 80px;
+    font-weight: bold;
+    color: #00ff88;
+    margin-bottom: 20px;
+    animation: bounceIcon 0.6s ease-out;
+}
+
+@keyframes bounceIcon {
+    0% {
+        transform: scale(0);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.success-content h2 {
+    font-size: 2.5rem;
+    margin: 20px 0;
+    color: white;
+}
+
+.success-content p {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.95);
+    margin: 15px 0 30px 0;
+}
+
+#continueBtn {
+    background: linear-gradient(135deg, #00ff88, #00ccaa);
+    padding: 15px 50px;
+    font-size: 1.2rem;
+    width: auto;
+    max-width: none;
+}
+
+#continueBtn:hover {
+    transform: scale(1.05);
 }

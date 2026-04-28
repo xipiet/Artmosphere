@@ -60,17 +60,9 @@ socket.on('app:init', (d) => {
     // Populate theme dropdown
     updateThemeDropdown();
     
-    // Load current theme data
     if (currentConfig.themes && currentConfig.themes[currentConfig.activeTheme]) {
-    const t = currentConfig.themes[currentConfig.activeTheme];
-    document.getElementById('z0start').value = t.zones[0].yStartPct;
-    document.getElementById('z0end').value = t.zones[0].yEndPct;
-    document.getElementById('z1start').value = t.zones[1].yStartPct;
-    document.getElementById('z1end').value = t.zones[1].yEndPct;
-    document.getElementById('z2start').value = t.zones[2].yStartPct;
-    document.getElementById('z2end').value = t.zones[2].yEndPct;
+        previewBg(currentConfig.themes[currentConfig.activeTheme].image);
     }
-    previewBg(currentConfig.themes[currentConfig.activeTheme].image);
     
     // Request current gallery
     socket.emit('admin:requestGallery');
@@ -80,19 +72,10 @@ socket.on('config:changed', (conf) => {
     currentConfig = conf;
     document.getElementById('currentThemeName').textContent = conf.activeTheme;
     updateThemeDropdown();
-    
-    // Update zone values when theme changes
-    const t = currentConfig.themes[currentConfig.activeTheme];
-    if (t && t.zones) {
-        document.getElementById('z0start').value = t.zones[0].yStartPct;
-        document.getElementById('z0end').value = t.zones[0].yEndPct;
-        document.getElementById('z1start').value = t.zones[1].yStartPct;
-        document.getElementById('z1end').value = t.zones[1].yEndPct;
-        document.getElementById('z2start').value = t.zones[2].yStartPct;
-        document.getElementById('z2end').value = t.zones[2].yEndPct;
+
+    if (currentConfig.themes && currentConfig.themes[currentConfig.activeTheme]) {
+        previewBg(currentConfig.themes[currentConfig.activeTheme].image);
     }
-    
-    previewBg(currentConfig.themes[currentConfig.activeTheme].image);
     showStatus('Theme config updated');
 });
 
@@ -150,7 +133,7 @@ function renderGallery() {
         <div class="gallery-item">
           <img src="${img.dataUrl}" alt="Painting">
           <div class="gallery-item-info">
-            <span class="zone-badge">${img.zoneId.toUpperCase()}</span>
+            <span class="zone-badge">${(img.movementType || '—').toUpperCase()}</span>
             <br><small>${new Date(img.timestamp).toLocaleTimeString()}</small>
           </div>
           <button class="gallery-item-delete" onclick="deleteImage('${img.id}')">🗑️ Delete</button>
@@ -231,41 +214,6 @@ function updateSettings() {
     updateGalleryModeUI();
     showStatus('Settings updated');
 }
-
-// Save button
-document.getElementById('saveBtn').addEventListener('click', () => {
-    const themeName = currentConfig.activeTheme;
-    const themeObj = {
-    image: themeName + '.png',
-    zones: [
-        { id:'top', yStartPct: Number(document.getElementById('z0start').value), yEndPct: Number(document.getElementById('z0end').value) },
-        { id:'middle', yStartPct: Number(document.getElementById('z1start').value), yEndPct: Number(document.getElementById('z1end').value) },
-        { id:'bottom', yStartPct: Number(document.getElementById('z2start').value), yEndPct: Number(document.getElementById('z2end').value) }
-    ]
-    };
-    
-    // Validation
-    if (themeObj.zones[0].yStartPct !== 0 || themeObj.zones[2].yEndPct !== 100 || 
-        themeObj.zones[0].yEndPct !== themeObj.zones[1].yStartPct || 
-        themeObj.zones[1].yEndPct !== themeObj.zones[2].yStartPct) {
-        showStatus('Invalid zone percentages (must be sequential and cover 0..100)', true);
-        return;
-    }
-    
-    const cfg = { 
-    activeTheme: currentConfig.activeTheme, 
-    themes: { ...currentConfig.themes }
-    };
-    cfg.themes[themeName] = themeObj;
-    
-    socket.emit('saveConfig', cfg, (res) => {
-    if (res && res.ok) {
-        showStatus('✅ Zone config saved!');
-    } else {
-        showStatus('Save failed', true);
-    }
-    });
-});
 
 // Theme dropdown
 themeDropdown.addEventListener('change', () => {
