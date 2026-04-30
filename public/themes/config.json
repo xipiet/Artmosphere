@@ -11,7 +11,7 @@
           "style": "pedestrian",
           "yMinPct": 67,
           "yMaxPct": 100,
-          "speedMin": 0.10,
+          "speedMin": 0.1,
           "speedMax": 0.15,
           "template": "/media/drawing-template-pedestrian.svg",
           "templateSize": "30% auto"
@@ -21,12 +21,13 @@
           "icon": "🚗",
           "label": "Auto",
           "style": "car",
-          "yMinPct": 50,
-          "yMaxPct": 60,
+          "yMinPct": 55,
+          "yMaxPct": 56,
           "speedMin": 0.22,
           "speedMax": 0.35,
           "template": "/media/drawing-template-car.svg",
-          "templateSize": "88% auto"
+          "templateSize": "88% auto",
+          "scalePct": 92
         },
         {
           "id": "airplane",

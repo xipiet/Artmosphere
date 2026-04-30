@@ -8,9 +8,18 @@ const normalizeToggle = document.getElementById('normalizeToggle');
 const foregroundPaintings = document.getElementById('foregroundPaintings');
 const midgroundPaintings = document.getElementById('midgroundPaintings');
 const backgroundPaintings = document.getElementById('backgroundPaintings');
+const opacityInputs = {
+    foregroundOpacityMin: document.getElementById('foregroundOpacityMin'),
+    foregroundOpacityMax: document.getElementById('foregroundOpacityMax'),
+    midgroundOpacityMin: document.getElementById('midgroundOpacityMin'),
+    midgroundOpacityMax: document.getElementById('midgroundOpacityMax'),
+    backgroundOpacityMin: document.getElementById('backgroundOpacityMin'),
+    backgroundOpacityMax: document.getElementById('backgroundOpacityMax'),
+};
 const maxPaintingsSettings = document.getElementById('maxPaintingsSettings');
 const maxImagesModeSetting = document.getElementById('maxImagesModeSetting');
 const themeDropdown = document.getElementById('themeDropdown');
+const categoryRangesList = document.getElementById('categoryRangesList');
 const gallery = document.getElementById('gallery');
 const galleryCount = document.getElementById('galleryCount');
 const gallerySort = document.getElementById('gallerySort');
@@ -56,7 +65,8 @@ socket.on('app:init', (d) => {
     foregroundPaintings.value = currentSettings.foregroundPaintings || 10;
     midgroundPaintings.value = currentSettings.midgroundPaintings || 10;
     backgroundPaintings.value = currentSettings.backgroundPaintings || 10;
-    
+    hydrateOpacityInputs(currentSettings);
+
     updateGalleryModeUI();
     
     // Populate theme dropdown
@@ -65,7 +75,8 @@ socket.on('app:init', (d) => {
     if (currentConfig.themes && currentConfig.themes[currentConfig.activeTheme]) {
         previewBg(currentConfig.themes[currentConfig.activeTheme].image);
     }
-    
+    renderCategoryRanges();
+
     // Request current gallery
     socket.emit('admin:requestGallery');
 });
@@ -78,7 +89,29 @@ socket.on('config:changed', (conf) => {
     if (currentConfig.themes && currentConfig.themes[currentConfig.activeTheme]) {
         previewBg(currentConfig.themes[currentConfig.activeTheme].image);
     }
+    renderCategoryRanges();
     showStatus('Theme config updated');
+});
+
+socket.on('category:rangesChanged', ({ themeName, categoryId, yMinPct, yMaxPct, speedMin, speedMax, scalePct }) => {
+    if (!currentConfig || !currentConfig.themes || !currentConfig.themes[themeName]) return;
+    const cat = currentConfig.themes[themeName].categories.find(c => c.id === categoryId);
+    if (!cat) return;
+    cat.yMinPct = yMinPct;
+    cat.yMaxPct = yMaxPct;
+    cat.speedMin = speedMin;
+    cat.speedMax = speedMax;
+    if (Number.isFinite(scalePct)) cat.scalePct = scalePct;
+    if (themeName === currentConfig.activeTheme) {
+        const row = categoryRangesList.querySelector(`[data-category-id="${categoryId}"]`);
+        if (row) {
+            const active = document.activeElement;
+            row.querySelectorAll('input[data-field]').forEach(input => {
+                if (input === active) return;
+                input.value = cat[input.dataset.field];
+            });
+        }
+    }
 });
 
 socket.on('admin:updateSettings', (settings) => {
@@ -90,8 +123,23 @@ socket.on('admin:updateSettings', (settings) => {
     foregroundPaintings.value = settings.foregroundPaintings || 10;
     midgroundPaintings.value = settings.midgroundPaintings || 10;
     backgroundPaintings.value = settings.backgroundPaintings || 10;
+    hydrateOpacityInputs(settings);
     updateGalleryModeUI();
 });
+
+function hydrateOpacityInputs(s) {
+    const defaults = {
+        foregroundOpacityMin: 0.7, foregroundOpacityMax: 1.0,
+        midgroundOpacityMin: 0.4, midgroundOpacityMax: 0.69,
+        backgroundOpacityMin: 0.1, backgroundOpacityMax: 0.39,
+    };
+    Object.keys(opacityInputs).forEach(key => {
+        const el = opacityInputs[key];
+        if (!el) return;
+        const v = s && Number.isFinite(Number(s[key])) ? Number(s[key]) : defaults[key];
+        if (document.activeElement !== el) el.value = v;
+    });
+}
 
 // Gallery updated
 socket.on('admin:updateGallery', (images) => {
@@ -133,6 +181,57 @@ function previewBg(fn) {
     img.src = '/theme-image/' + encodeURIComponent(fn);
     img.onerror = () => preview.textContent = 'Image not found';
     preview.appendChild(img);
+}
+
+function renderCategoryRanges() {
+    if (!categoryRangesList) return;
+    const theme = currentConfig && currentConfig.themes && currentConfig.themes[currentConfig.activeTheme];
+    if (!theme || !Array.isArray(theme.categories) || theme.categories.length === 0) {
+        categoryRangesList.innerHTML = '<div style="color:#888; font-style:italic;">Kein aktives Theme oder keine Kategorien.</div>';
+        return;
+    }
+    categoryRangesList.innerHTML = theme.categories.map(cat => `
+        <div class="category-row" data-category-id="${cat.id}" style="display:flex; flex-wrap:wrap; gap:15px; align-items:center; padding:10px 0; border-bottom:1px solid #eee;">
+            <div style="min-width:170px;"><span style="font-size:1.4em;">${cat.icon || ''}</span> <strong>${cat.label || cat.id}</strong> <small style="color:#888;">(${cat.id})</small></div>
+            <label style="font-size:0.9em;">yMin %
+                <input type="number" min="0" max="100" step="1" data-field="yMinPct" value="${cat.yMinPct}" style="width:70px; margin-left:5px;">
+            </label>
+            <label style="font-size:0.9em;">yMax %
+                <input type="number" min="0" max="100" step="1" data-field="yMaxPct" value="${cat.yMaxPct}" style="width:70px; margin-left:5px;">
+            </label>
+            <label style="font-size:0.9em;">speedMin
+                <input type="number" min="0" max="2" step="0.01" data-field="speedMin" value="${cat.speedMin}" style="width:80px; margin-left:5px;">
+            </label>
+            <label style="font-size:0.9em;">speedMax
+                <input type="number" min="0" max="2" step="0.01" data-field="speedMax" value="${cat.speedMax}" style="width:80px; margin-left:5px;">
+            </label>
+            <label style="font-size:0.9em;">Größe %
+                <input type="number" min="10" max="400" step="1" data-field="scalePct" value="${Number.isFinite(cat.scalePct) ? cat.scalePct : 100}" style="width:75px; margin-left:5px;">
+            </label>
+        </div>
+    `).join('');
+}
+
+if (categoryRangesList) {
+    categoryRangesList.addEventListener('change', (e) => {
+        const input = e.target.closest('input[data-field]');
+        if (!input) return;
+        const row = input.closest('[data-category-id]');
+        if (!row || !currentConfig) return;
+        const categoryId = row.dataset.categoryId;
+        const themeName = currentConfig.activeTheme;
+        const theme = currentConfig.themes && currentConfig.themes[themeName];
+        const cat = theme && theme.categories.find(c => c.id === categoryId);
+        if (!cat) return;
+        const fields = ['yMinPct', 'yMaxPct', 'speedMin', 'speedMax', 'scalePct'];
+        const payload = { themeName, categoryId };
+        fields.forEach(f => {
+            const el = row.querySelector(`input[data-field="${f}"]`);
+            payload[f] = Number(el.value);
+        });
+        socket.emit('admin:updateCategoryRanges', payload);
+        showStatus(`Kategorie "${cat.label || categoryId}" aktualisiert`);
+    });
 }
 
 // Render gallery
@@ -254,6 +353,10 @@ backgroundPaintings.addEventListener('change', () => {
     updateSettings();
 });
 
+Object.values(opacityInputs).forEach(el => {
+    if (el) el.addEventListener('change', () => updateSettings());
+});
+
 // Show/hide max paintings settings based on gallery mode
 function updateGalleryModeUI() {
     const isMaxPaintingsMode = galleryModeDropdown.value === 'maxPaintings';
@@ -262,7 +365,14 @@ function updateGalleryModeUI() {
 }
 
 function updateSettings() {
-    const newSettings = { 
+    const clamp01 = v => Math.min(Math.max(Number(v), 0), 1);
+    const fgMin = clamp01(opacityInputs.foregroundOpacityMin.value);
+    const fgMax = Math.max(fgMin, clamp01(opacityInputs.foregroundOpacityMax.value));
+    const mgMin = clamp01(opacityInputs.midgroundOpacityMin.value);
+    const mgMax = Math.max(mgMin, clamp01(opacityInputs.midgroundOpacityMax.value));
+    const bgMin = clamp01(opacityInputs.backgroundOpacityMin.value);
+    const bgMax = Math.max(bgMin, clamp01(opacityInputs.backgroundOpacityMax.value));
+    const newSettings = {
         galleryMode: galleryModeDropdown.value,
         maxImages: Number(maxImagesInput.value),
         maxImagesMode: maxImagesModeDropdown.value,
@@ -270,12 +380,12 @@ function updateSettings() {
         foregroundPaintings: Number(foregroundPaintings.value) || 10,
         midgroundPaintings: Number(midgroundPaintings.value) || 10,
         backgroundPaintings: Number(backgroundPaintings.value) || 10,
-        foregroundOpacityMax: 1.0,
-        foregroundOpacityMin: 0.7,
-        midgroundOpacityMax: 0.69,
-        midgroundOpacityMin: 0.4,
-        backgroundOpacityMax: 0.39,
-        backgroundOpacityMin: 0.1
+        foregroundOpacityMax: fgMax,
+        foregroundOpacityMin: fgMin,
+        midgroundOpacityMax: mgMax,
+        midgroundOpacityMin: mgMin,
+        backgroundOpacityMax: bgMax,
+        backgroundOpacityMin: bgMin,
     };
     socket.emit("admin:updateSettings", newSettings);
     updateGalleryModeUI();

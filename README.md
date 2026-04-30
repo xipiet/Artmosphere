@@ -1,6 +1,6 @@
 # Artmosphere - Orakel
 
-- Web-App mit /ipad, /ipad2 und /main <br/>
+- Web-App mit /ipad, /main, /admin und /kritiker <br/>
 
 ## Installation
 
