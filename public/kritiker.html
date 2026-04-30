@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kritiker - Artmosphere</title>
+
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="stylesheet" href="/css/kritiker.css">
+  </head>
+
+  <body>
+    <video autoplay muted loop>
+      <source src="/media/background.mp4" type="video/mp4">
+      Ihr Browser unterstützt das Video-Tag nicht.
+    </video>
+
+    <nav>
+      <div class="logo">
+        <img src="/media/favicon.png" alt="Artmosphere Logo">
+      </div>
+    </nav>
+
+    <div class="title-header">
+      Wie gefällt dir dieses Kunstwerk?
+    </div>
+
+    <div class="painting-window" id="paintingWindow">
+      <div class="loading">Lade Kunstwerk...</div>
+    </div>
+
+    <div class="vote-toast" id="voteToast" role="status" aria-live="polite"></div>
+
+    <div class="content">
+    </div>
+
+    <div class="button-container">
+      <button class="rating-button rate-very-good" data-rating="veryGood">Sehr gut</button>
+      <button class="rating-button rate-good" data-rating="good">Gut</button>
+      <button class="rating-button rate-bad" data-rating="bad">Schlecht</button>
+      <button class="rating-button rate-very-bad" data-rating="veryBad">Sehr schlecht</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/kritiker.js"></script>
+  </body>
+</html>

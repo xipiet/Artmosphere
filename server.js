@@ -161,6 +161,10 @@ app.get("/admin", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "admin.html"));
 });
 
+app.get("/kritiker", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "kritiker.html"));
+});
+
 // ----------------------------------
 // Theme Image Route
 // ----------------------------------
@@ -230,7 +234,11 @@ io.on("connection", (socket) => {
 
     // Persisted shape for activeImages (no sessionId — that's a one-shot signal
     // for the screenshot, not part of the floating image's identity).
-    const imageData = { id: imageId, dataUrl, movementType, facingDirection: facing, timestamp };
+    const imageData = {
+      id: imageId, dataUrl, movementType, facingDirection: facing, timestamp,
+      score: 0,
+      votes: { veryGood: 0, good: 0, bad: 0, veryBad: 0 }
+    };
 
     // Enforce max images limit in "maxPaintings" mode
     if (serverSettings.galleryMode === "maxPaintings" && activeImages.length >= serverSettings.maxImages) {
@@ -250,6 +258,104 @@ io.on("connection", (socket) => {
     // renderer (./lib/mainRenderer) is also subscribed via its own /main page,
     // so its view stays in sync automatically. Screenshot is taken at finalize
     // time directly off that headless page.
+  });
+
+  // Kritiker rates an image with a 4-tier scale.
+  // Layer movement = |delta| steps toward foreground (+) or background (-).
+  // Glow tier scales with score. Image dropped when score <= -3 AND in BG.
+  const RATE_DELTA = { veryGood: +2, good: +1, bad: -1, veryBad: -2 };
+
+  function moveOneStep(image, direction) {
+    // direction: +1 = toward foreground, -1 = toward background
+    // Returns true if image was deleted (BG + threshold met).
+    const idx = activeImages.findIndex(img => img.id === image.id);
+    if (idx === -1) return false;
+    const totalBefore = activeImages.length;
+    const positionFromEnd = totalBefore - 1 - idx;
+    const fgCount = serverSettings.foregroundPaintings || 10;
+    const mgCount = serverSettings.midgroundPaintings || 10;
+
+    activeImages.splice(idx, 1);
+
+    if (direction > 0) {
+      if (positionFromEnd < fgCount) {
+        // Already FG — go to the very end (foreground-most)
+        activeImages.push(image);
+      } else if (positionFromEnd < fgCount + mgCount) {
+        // MG → FG: land just inside FG
+        const newIndex = activeImages.length - fgCount + 1;
+        activeImages.splice(Math.min(activeImages.length, Math.max(0, newIndex)), 0, image);
+      } else {
+        // BG → MG
+        const newIndex = activeImages.length - fgCount - mgCount + 1;
+        activeImages.splice(Math.max(0, newIndex), 0, image);
+      }
+      return false;
+    } else {
+      if (positionFromEnd < fgCount) {
+        // FG → MG
+        const newIndex = activeImages.length - fgCount;
+        activeImages.splice(Math.max(0, newIndex), 0, image);
+      } else if (positionFromEnd < fgCount + mgCount) {
+        // MG → BG
+        const newIndex = activeImages.length - fgCount - mgCount;
+        activeImages.splice(Math.max(0, newIndex), 0, image);
+      } else if (image.score <= -3) {
+        // BG and unloved enough — drop it
+        io.emit("admin:removeImageFromMain", image.id);
+        return true;
+      } else {
+        // Stay in BG (front of array)
+        activeImages.splice(0, 0, image);
+      }
+      return false;
+    }
+  }
+
+  socket.on("kritiker:rateImage", ({ imageId, rating } = {}, ack) => {
+    const reply = (payload) => { if (typeof ack === 'function') ack(payload); };
+    const delta = RATE_DELTA[rating];
+    if (delta === undefined) {
+      reply({ ok: false, error: 'invalid_rating' });
+      return;
+    }
+
+    const image = activeImages.find(img => img.id === imageId);
+    if (!image) {
+      reply({ ok: false, error: 'not_found' });
+      return;
+    }
+
+    if (!image.votes) image.votes = { veryGood: 0, good: 0, bad: 0, veryBad: 0 };
+    image.votes[rating] = (image.votes[rating] || 0) + 1;
+    image.score = (image.score || 0) + delta;
+
+    // "veryGood" jumps straight to the end — most prominent foreground slot.
+    // For all other deltas, move |delta| layers in the appropriate direction.
+    let removed = false;
+    if (rating === 'veryGood') {
+      const idx = activeImages.findIndex(img => img.id === imageId);
+      if (idx !== -1) {
+        activeImages.splice(idx, 1);
+        activeImages.push(image);
+      }
+    } else {
+      const direction = delta > 0 ? 1 : -1;
+      const steps = Math.abs(delta);
+      for (let i = 0; i < steps; i++) {
+        if (moveOneStep(image, direction)) { removed = true; break; }
+      }
+    }
+
+    if (removed) {
+      io.emit("admin:updateGallery", activeImages);
+      reply({ ok: true, removed: true, score: image.score, votes: image.votes });
+      return;
+    }
+
+    io.emit("image:voteUpdate", { id: imageId, score: image.score, votes: image.votes });
+    io.emit("admin:updateGallery", activeImages);
+    reply({ ok: true, score: image.score, votes: image.votes });
   });
 
   // Admin removes an image
@@ -366,6 +472,7 @@ io.on("connection", (socket) => {
         fs.writeFileSync(path.join(finalPath, 'main_canvas.png'), mainCanvasBuffer);
       }
 
+      const liveImage = activeImages.find(img => img.id === sess.imageId);
       const metadata = {
         name: trimmed,
         sanitizedName,
@@ -373,7 +480,11 @@ io.on("connection", (socket) => {
         date: new Date(sess.timestamp).toISOString(),
         movementType: sess.movementType || null,
         facingDirection: sess.facingDirection || 'right',
-        hasScreenshot: !!mainCanvasBuffer
+        hasScreenshot: !!mainCanvasBuffer,
+        score: liveImage ? (liveImage.score || 0) : 0,
+        votes: liveImage && liveImage.votes
+          ? liveImage.votes
+          : { veryGood: 0, good: 0, bad: 0, veryBad: 0 }
       };
       fs.writeFileSync(path.join(finalPath, 'metadata.json'), JSON.stringify(metadata, null, 2));
 

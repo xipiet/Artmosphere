@@ -123,6 +123,16 @@
       <!-- GALLERY ADMIN PANEL -->
       <div class="gallery-panel">
         <h3>🖼️ Active Paintings Gallery (<span id="galleryCount">0</span> items)</h3>
+        <div class="gallery-toolbar">
+          <label for="gallerySort">Sort:</label>
+          <select id="gallerySort">
+            <option value="recent">Recent first</option>
+            <option value="scoreDesc">Best rated first</option>
+            <option value="scoreAsc">Worst rated first</option>
+            <option value="totalVotes">Most votes</option>
+          </select>
+          <span class="gallery-aggregate" id="galleryAggregate"></span>
+        </div>
         <div class="gallery-grid" id="gallery">
           <div class="gallery-empty">No paintings yet. Draw on the iPad to add!</div>
         </div>
