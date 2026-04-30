@@ -13,6 +13,8 @@ const maxImagesModeSetting = document.getElementById('maxImagesModeSetting');
 const themeDropdown = document.getElementById('themeDropdown');
 const gallery = document.getElementById('gallery');
 const galleryCount = document.getElementById('galleryCount');
+const gallerySort = document.getElementById('gallerySort');
+const galleryAggregate = document.getElementById('galleryAggregate');
 
 let currentConfig = null;
 let currentSettings = null;
@@ -97,6 +99,19 @@ socket.on('admin:updateGallery', (images) => {
     renderGallery();
 });
 
+// Live score change for a single image — patch in place + re-render
+socket.on('image:voteUpdate', ({ id, score, votes }) => {
+    const img = activeImages.find(i => i.id === id);
+    if (!img) return;
+    img.score = score || 0;
+    if (votes) img.votes = votes;
+    renderGallery();
+});
+
+if (gallerySort) {
+    gallerySort.addEventListener('change', renderGallery);
+}
+
 function updateThemeDropdown() {
     themeDropdown.innerHTML = '';
     if (currentConfig && currentConfig.themes) {
@@ -121,20 +136,72 @@ function previewBg(fn) {
 }
 
 // Render gallery
+function totalVotes(img) {
+    const v = img.votes || {};
+    return (v.veryGood || 0) + (v.good || 0) + (v.bad || 0) + (v.veryBad || 0);
+}
+
+function scoreBadge(score) {
+    const cls = score > 0 ? 'score-pos' : score < 0 ? 'score-neg' : 'score-zero';
+    const sign = score > 0 ? '+' : '';
+    return `<span class="score-badge ${cls}">Score ${sign}${score}</span>`;
+}
+
+function voteBreakdown(votes) {
+    const v = votes || {};
+    const vg = v.veryGood || 0, g = v.good || 0, b = v.bad || 0, vb = v.veryBad || 0;
+    if (vg + g + b + vb === 0) return '<div class="vote-breakdown"><span>no votes yet</span></div>';
+    return `<div class="vote-breakdown">
+        <span class="vb-vg">⭐ ${vg}</span>
+        <span class="vb-g">👍 ${g}</span>
+        <span class="vb-b">👎 ${b}</span>
+        <span class="vb-vb">💀 ${vb}</span>
+    </div>`;
+}
+
+function sortedImages() {
+    const mode = gallerySort ? gallerySort.value : 'recent';
+    const copy = activeImages.slice();
+    switch (mode) {
+        case 'scoreDesc':
+            return copy.sort((a, b) => (b.score || 0) - (a.score || 0) || b.timestamp - a.timestamp);
+        case 'scoreAsc':
+            return copy.sort((a, b) => (a.score || 0) - (b.score || 0) || b.timestamp - a.timestamp);
+        case 'totalVotes':
+            return copy.sort((a, b) => totalVotes(b) - totalVotes(a) || b.timestamp - a.timestamp);
+        case 'recent':
+        default:
+            return copy.reverse(); // newest first; activeImages keeps oldest at index 0
+    }
+}
+
 function renderGallery() {
     galleryCount.textContent = activeImages.length;
-    
+
+    // Aggregate header: avg score + total votes across active images
+    if (galleryAggregate) {
+        if (activeImages.length === 0) {
+            galleryAggregate.textContent = '';
+        } else {
+            const totalV = activeImages.reduce((s, i) => s + totalVotes(i), 0);
+            const avg = activeImages.reduce((s, i) => s + (i.score || 0), 0) / activeImages.length;
+            galleryAggregate.textContent = `Ø Score ${avg.toFixed(1)} · ${totalV} votes total`;
+        }
+    }
+
     if (activeImages.length === 0) {
         gallery.innerHTML = '<div class="gallery-empty">No paintings yet. Draw on the iPad to add!</div>';
         return;
     }
 
-    gallery.innerHTML = activeImages.map(img => `
+    gallery.innerHTML = sortedImages().map(img => `
         <div class="gallery-item">
           <img src="${img.dataUrl}" alt="Painting">
           <div class="gallery-item-info">
             <span class="zone-badge">${(img.movementType || '—').toUpperCase()}</span>
+            ${scoreBadge(img.score || 0)}
             <br><small>${new Date(img.timestamp).toLocaleTimeString()}</small>
+            ${voteBreakdown(img.votes)}
           </div>
           <button class="gallery-item-delete" onclick="deleteImage('${img.id}')">🗑️ Delete</button>
         </div>

@@ -29,7 +29,7 @@ window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
 class FloatingImage {
-    constructor(id, img, category, facingDirection = 'right') {
+    constructor(id, img, category, facingDirection = 'right', score = 0) {
         this.id = id;
         this.img = img;
         this.category = category; // { id, style, yMinPct, yMaxPct, speedMin, speedMax, ... }
@@ -42,6 +42,7 @@ class FloatingImage {
         this.currentLayer = 'background';
         this.age = Math.random() * 1000;
         this.rotation = 0;
+        this.score = score;
 
         this.initializeMovement();
         this.applyInitialDirection();
@@ -185,6 +186,14 @@ class FloatingImage {
         ctx.translate(centerX, centerY);
         ctx.scale(facingScale, 1);
         ctx.rotate(this.rotation * facingScale);
+
+        // Glow for well-rated paintings — only in foreground to bound shadowBlur cost
+        if (this.currentLayer === 'foreground' && (this.score || 0) > 0) {
+            const tier = Math.min(this.score, 6);
+            ctx.shadowBlur = tier * 6;
+            ctx.shadowColor = `rgba(255, 215, 130, ${Math.min(0.5 + tier * 0.05, 0.85)})`;
+        }
+
         ctx.drawImage(this.img, -this.img.width / 2, -this.img.height / 2);
         ctx.restore();
     }
@@ -395,7 +404,7 @@ socket.on("admin:updateSettings", (settings) => {
 });
 
 // Bild kommt an, mit movementType (Kategorie-ID des aktiven Themes)
-socket.on("newImage", ({ id, dataUrl, movementType, facingDirection }) => {
+socket.on("newImage", ({ id, dataUrl, movementType, facingDirection, score }) => {
     const img = new Image();
     img.onload = () => {
         const category = themeConfig && themeConfig.categories
@@ -442,9 +451,17 @@ socket.on("newImage", ({ id, dataUrl, movementType, facingDirection }) => {
             finalImg.src = tempCanvas.toDataURL();
         }
         
-        activeImages.push(new FloatingImage(id, finalImg, category, facingDirection));
+        activeImages.push(new FloatingImage(id, finalImg, category, facingDirection, score));
     };
     img.src = dataUrl;
+});
+
+// Score changed for a specific image — update the live FloatingImage
+// instance so the glow reflects the new score. Don't re-create the object,
+// otherwise the painting would teleport.
+socket.on("image:voteUpdate", ({ id, score }) => {
+    const target = activeImages.find(img => img.id === id);
+    if (target) target.score = score || 0;
 });
 
 // Admin removed an image - filter it out from activeImages
@@ -513,7 +530,7 @@ socket.on("main:allImages", ({ images }) => {
                 finalImg.src = tempCanvas.toDataURL();
             }
             
-            activeImages.push(new FloatingImage(imageData.id, finalImg, category, imageData.facingDirection));
+            activeImages.push(new FloatingImage(imageData.id, finalImg, category, imageData.facingDirection, imageData.score));
         };
         img.src = imageData.dataUrl;
     });
