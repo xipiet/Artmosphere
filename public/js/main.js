@@ -53,8 +53,16 @@ class FloatingImage {
         this.vx = Math.abs(this.vx) * direction;
     }
 
+    get scaleFactor() {
+        const s = this.category && Number(this.category.scalePct);
+        return Number.isFinite(s) && s > 0 ? s / 100 : 1;
+    }
+
+    get w() { return this.img.width * this.scaleFactor; }
+    get h() { return this.img.height * this.scaleFactor; }
+
     bounceHorizontally() {
-        const maxX = Math.max(0, canvas.width - this.img.width);
+        const maxX = Math.max(0, canvas.width - this.w);
         if (this.x <= 0) {
             this.x = 0;
             this.vx = Math.abs(this.vx);
@@ -67,7 +75,7 @@ class FloatingImage {
     yBounds() {
         const cat = this.category;
         const yMin = canvas.height * (cat.yMinPct / 100);
-        const yMax = Math.max(yMin, canvas.height * (cat.yMaxPct / 100) - this.img.height);
+        const yMax = Math.max(yMin, canvas.height * (cat.yMaxPct / 100) - this.h);
         return { yMin, yMax };
     }
 
@@ -77,9 +85,8 @@ class FloatingImage {
     }
 
     initializeMovement() {
-        const img = this.img;
         const { yMin, yMax } = this.yBounds();
-        this.x = Math.random() * Math.max(0, canvas.width - img.width);
+        this.x = Math.random() * Math.max(0, canvas.width - this.w);
         this.baseY = yMin + Math.random() * Math.max(0, yMax - yMin);
         this.y = this.baseY;
         this.vx = this.randomSpeed() * (Math.random() < 0.5 ? 1 : -1);
@@ -194,14 +201,14 @@ class FloatingImage {
             ctx.shadowColor = `rgba(255, 215, 130, ${Math.min(0.5 + tier * 0.05, 0.85)})`;
         }
 
-        ctx.drawImage(this.img, -this.img.width / 2, -this.img.height / 2);
+        ctx.drawImage(this.img, -this.w / 2, -this.h / 2, this.w, this.h);
         ctx.restore();
     }
 
     draw() {
         const alpha = this.layerAlpha * this.fadeAlpha;
-        const centerX = this.x + this.img.width / 2;
-        const centerY = this.y + this.img.height / 2;
+        const centerX = this.x + this.w / 2;
+        const centerY = this.y + this.h / 2;
 
         if (this.style === 'airplane') {
             const trailDirection = this.vx >= 0 ? -1 : 1;
@@ -232,9 +239,9 @@ class FloatingImage {
             ctx.beginPath();
             ctx.ellipse(
                 centerX,
-                this.y + this.img.height * 0.92,
-                this.img.width * 0.34,
-                Math.max(5, this.img.height * 0.06),
+                this.y + this.h * 0.92,
+                this.w * 0.34,
+                Math.max(5, this.h * 0.06),
                 0, 0, Math.PI * 2
             );
             ctx.fill();
@@ -251,12 +258,12 @@ class FloatingImage {
                 const wakeOffset = 18 + i * 15;
                 const waveLift = Math.sin(this.age * 0.08 + i) * 5;
                 ctx.beginPath();
-                ctx.moveTo(centerX + wakeDirection * wakeOffset, centerY + this.img.height * 0.22 + waveLift);
+                ctx.moveTo(centerX + wakeDirection * wakeOffset, centerY + this.h * 0.22 + waveLift);
                 ctx.quadraticCurveTo(
                     centerX + wakeDirection * (wakeOffset + 18),
-                    centerY + this.img.height * 0.18 + waveLift + 5,
+                    centerY + this.h * 0.18 + waveLift + 5,
                     centerX + wakeDirection * (wakeOffset + 38),
-                    centerY + this.img.height * 0.22 + waveLift
+                    centerY + this.h * 0.22 + waveLift
                 );
                 ctx.stroke();
             }
@@ -266,7 +273,7 @@ class FloatingImage {
             this.drawDirectionalImage(alpha, centerX, centerY);
         } else {
             ctx.globalAlpha = alpha;
-            ctx.drawImage(this.img, this.x, this.y);
+            ctx.drawImage(this.img, this.x, this.y, this.w, this.h);
             ctx.globalAlpha = 1;
         }
     }
@@ -395,6 +402,28 @@ socket.on("config:changed", (config) => {
     statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
 
     canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.image)}")`;
+});
+
+// CATEGORY RANGES CHANGED (admin tuned yMin/yMax/speedMin/speedMax for one
+// category) — apply live without wiping the wall: pull active paintings of
+// that category into the new band and rescale their horizontal speed.
+socket.on("category:rangesChanged", ({ themeName, categoryId, yMinPct, yMaxPct, speedMin, speedMax, scalePct }) => {
+    if (!themeConfig || !themeConfig.categories) return;
+    const cat = themeConfig.categories.find(c => c.id === categoryId);
+    if (!cat) return;
+    cat.yMinPct = yMinPct;
+    cat.yMaxPct = yMaxPct;
+    cat.speedMin = speedMin;
+    cat.speedMax = speedMax;
+    if (Number.isFinite(scalePct)) cat.scalePct = scalePct;
+    activeImages.forEach(fi => {
+        if (!fi.category || fi.category.id !== categoryId) return;
+        const { yMin, yMax } = fi.yBounds();
+        fi.baseY = Math.min(Math.max(fi.baseY, yMin), yMax);
+        fi.y = fi.baseY;
+        const sign = Math.sign(fi.vx) || (Math.random() < 0.5 ? -1 : 1);
+        fi.vx = sign * fi.randomSpeed();
+    });
 });
 
 // SETTINGS UPDATE

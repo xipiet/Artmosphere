@@ -387,12 +387,17 @@ io.on("connection", (socket) => {
     serverSettings.foregroundPaintings = Number(newSettings.foregroundPaintings) || 10;
     serverSettings.midgroundPaintings = Number(newSettings.midgroundPaintings) || 10;
     serverSettings.backgroundPaintings = Number(newSettings.backgroundPaintings) || 10;
-    serverSettings.foregroundOpacityMax = Number(newSettings.foregroundOpacityMax) || 1.0;
-    serverSettings.foregroundOpacityMin = Number(newSettings.foregroundOpacityMin) || 0.7;
-    serverSettings.midgroundOpacityMax = Number(newSettings.midgroundOpacityMax) || 0.69;
-    serverSettings.midgroundOpacityMin = Number(newSettings.midgroundOpacityMin) || 0.4;
-    serverSettings.backgroundOpacityMax = Number(newSettings.backgroundOpacityMax) || 0.39;
-    serverSettings.backgroundOpacityMin = Number(newSettings.backgroundOpacityMin) || 0.1;
+    const opacity = (v, def) => {
+      const n = Number(v);
+      if (!Number.isFinite(n)) return def;
+      return Math.min(Math.max(n, 0), 1);
+    };
+    serverSettings.foregroundOpacityMax = opacity(newSettings.foregroundOpacityMax, 1.0);
+    serverSettings.foregroundOpacityMin = opacity(newSettings.foregroundOpacityMin, 0.7);
+    serverSettings.midgroundOpacityMax = opacity(newSettings.midgroundOpacityMax, 0.69);
+    serverSettings.midgroundOpacityMin = opacity(newSettings.midgroundOpacityMin, 0.4);
+    serverSettings.backgroundOpacityMax = opacity(newSettings.backgroundOpacityMax, 0.39);
+    serverSettings.backgroundOpacityMin = opacity(newSettings.backgroundOpacityMin, 0.1);
     saveSettings();
     io.emit("admin:updateSettings", serverSettings);
   });
@@ -410,6 +415,36 @@ io.on("connection", (socket) => {
     saveConfig();
     io.emit("config:changed", serverConfig);
     if (callback) callback({ ok: true });
+  });
+
+  // Admin tunes per-category ranges (yMin/yMax/speedMin/speedMax) without
+  // wiping the wall: mutate in place, persist, broadcast targeted event.
+  socket.on("admin:updateCategoryRanges", (payload) => {
+    if (!payload || typeof payload !== "object") return;
+    const { themeName, categoryId } = payload;
+    const theme = serverConfig && serverConfig.themes && serverConfig.themes[themeName];
+    if (!theme || !Array.isArray(theme.categories)) return;
+    const cat = theme.categories.find(c => c.id === categoryId);
+    if (!cat) return;
+    const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+    const yMin = clamp(Number(payload.yMinPct), 0, 100);
+    const yMaxRaw = clamp(Number(payload.yMaxPct), 0, 100);
+    const yMax = Math.max(yMin, yMaxRaw);
+    const sMin = Math.max(0, Number(payload.speedMin));
+    const sMax = Math.max(sMin, Number(payload.speedMax));
+    const scaleRaw = Number(payload.scalePct);
+    const scale = Number.isFinite(scaleRaw) ? clamp(scaleRaw, 10, 400) : (Number.isFinite(cat.scalePct) ? cat.scalePct : 100);
+    if (![yMin, yMax, sMin, sMax].every(Number.isFinite)) return;
+    cat.yMinPct = yMin;
+    cat.yMaxPct = yMax;
+    cat.speedMin = sMin;
+    cat.speedMax = sMax;
+    cat.scalePct = scale;
+    saveConfig();
+    io.emit("category:rangesChanged", {
+      themeName, categoryId,
+      yMinPct: yMin, yMaxPct: yMax, speedMin: sMin, speedMax: sMax, scalePct: scale
+    });
   });
 
   // Main display notifies that image is fully faded
