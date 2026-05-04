@@ -165,6 +165,27 @@ app.get("/kritiker", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "kritiker.html"));
 });
 
+app.get("/postcard", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "postcard.html"));
+});
+
+// ----------------------------------
+// Saved-Artwork Route (internal use only — postcard.html loads drawing.png
+// from here during headless polaroid render). Whitelisted filenames + folder
+// charset, plus a path.resolve prefix check to block traversal.
+// ----------------------------------
+app.get("/saved/:folder/:file", (req, res) => {
+  const { folder, file } = req.params;
+  if (!/^[a-z0-9_-]{1,80}$/.test(folder)) return res.sendStatus(404);
+  if (!/^(drawing|main_canvas|polaroid)\.png$|^metadata\.json$/.test(file)) return res.sendStatus(404);
+  const fullPath = path.join(SAVE_PATH, folder, file);
+  const resolved = path.resolve(fullPath);
+  if (!resolved.startsWith(path.resolve(SAVE_PATH) + path.sep)) return res.sendStatus(404);
+  // dotfiles:'allow' is needed because the default SAVE_PATH lives under
+  // ~/.local/share — without this Express's sendFile rejects the path.
+  res.sendFile(resolved, { dotfiles: 'allow' }, (err) => { if (err) res.sendStatus(404); });
+});
+
 // ----------------------------------
 // Theme Image Route
 // ----------------------------------
@@ -521,11 +542,26 @@ io.on("connection", (socket) => {
           ? liveImage.votes
           : { veryGood: 0, good: 0, bad: 0, veryBad: 0 }
       };
+      // Write metadata.json BEFORE polaroid render — postcard.html reads it.
       fs.writeFileSync(path.join(finalPath, 'metadata.json'), JSON.stringify(metadata, null, 2));
 
-      console.log(`[${sessionId}] finalized → ${finalFolderName} (screenshot=${metadata.hasScreenshot})`);
+      // Optional polaroid render. Non-fatal — save stays successful even if
+      // Chromium hiccups, the visitor still has drawing.png + main_canvas.png.
+      let hasPolaroid = false;
+      try {
+        const polaroidUrl = `http://127.0.0.1:${PORT}/postcard?folder=${encodeURIComponent(finalFolderName)}`;
+        const polaroidBuf = await mainRenderer.capturePage(polaroidUrl, { settleMs: 300 });
+        if (polaroidBuf) {
+          fs.writeFileSync(path.join(finalPath, 'polaroid.png'), polaroidBuf);
+          hasPolaroid = true;
+        }
+      } catch (err) {
+        console.error(`[${sessionId}] polaroid render failed:`, err.message);
+      }
+
+      console.log(`[${sessionId}] finalized → ${finalFolderName} (screenshot=${metadata.hasScreenshot} polaroid=${hasPolaroid})`);
       sessionStorage.delete(sessionId);
-      reply({ ok: true, folder: finalFolderName, hasScreenshot: metadata.hasScreenshot });
+      reply({ ok: true, folder: finalFolderName, hasScreenshot: metadata.hasScreenshot, hasPolaroid });
     } catch (err) {
       console.error(`[${sessionId}] save failed:`, err);
       reply({ ok: false, error: 'save_failed', detail: err.message });

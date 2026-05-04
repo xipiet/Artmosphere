@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Polaroid</title>
+    <link rel="stylesheet" href="/css/postcard.css">
+</head>
+<body>
+    <div class="polaroid">
+        <div class="image-frame">
+            <img id="drawing" alt="">
+        </div>
+        <div class="caption">
+            <div class="name" id="name"></div>
+            <div class="meta">
+                <span id="date"></span>
+                <span class="dot">·</span>
+                <span id="icon"></span>
+            </div>
+        </div>
+        <div class="brand">Artmosphere</div>
+    </div>
+
+    <script>
+    (async () => {
+        const params = new URLSearchParams(window.location.search);
+        const folder = params.get('folder');
+        if (!folder) { document.body.dataset.ready = '1'; return; }
+
+        const CATEGORY_LABELS = {
+            pedestrian: 'Fußgänger',
+            car: 'Auto',
+            airplane: 'Flugzeug',
+            watercraft: 'Wasserverkehr'
+        };
+
+        const formatDate = (iso) => {
+            try {
+                const d = new Date(iso);
+                return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            } catch { return ''; }
+        };
+
+        try {
+            const meta = await fetch(`/saved/${folder}/metadata.json`).then(r => r.json());
+            document.getElementById('name').textContent = meta.name || '';
+            document.getElementById('date').textContent = formatDate(meta.date);
+            document.getElementById('icon').textContent = CATEGORY_LABELS[meta.movementType] || '';
+        } catch (err) {
+            console.warn('metadata load failed', err);
+        }
+
+        const img = document.getElementById('drawing');
+        await new Promise((resolve) => {
+            img.onload = resolve;
+            img.onerror = resolve;
+            img.src = `/saved/${folder}/drawing.png`;
+        });
+
+        // Two animation frames so layout/paint definitely settled
+        await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+        document.body.dataset.ready = '1';
+    })();
+    </script>
+</body>
+</html>
