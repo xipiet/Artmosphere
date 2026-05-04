@@ -1,0 +1,146 @@
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: 'Poppins', sans-serif;
+  color: white;
+}
+
+video {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -1;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  text-align: center;
+}
+
+nav {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 10;
+}
+
+nav .logo img {
+  width: 140px;
+  height: auto;
+}
+
+.title-header {
+  position: fixed;
+  top: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  color: white;
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.painting-window {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  background: white;
+  border: 3px solid white;
+  border-radius: 10px;
+  padding: 20px;
+  width: 64vh;
+  height: 64vh;
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+}
+
+.painting-window img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.loading {
+  color: #333;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  text-align: center;
+}
+
+.button-container {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  gap: 20px;
+}
+
+.rating-button {
+  padding: 15px 32px;
+  font-size: 1.05rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.rating-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.rating-button:hover:not(:disabled) {
+  transform: scale(1.05);
+  filter: brightness(1.1);
+}
+
+.rate-very-good { background-color: #2e7d32; }
+.rate-good      { background-color: #66bb6a; }
+.rate-bad       { background-color: #ef5350; }
+.rate-very-bad  { background-color: #b71c1c; }
+
+.vote-toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  z-index: 200;
+  padding: 24px 48px;
+  font-size: 1.6rem;
+  font-weight: bold;
+  border-radius: 12px;
+  background-color: rgba(0, 0, 0, 0.78);
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.vote-toast.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}

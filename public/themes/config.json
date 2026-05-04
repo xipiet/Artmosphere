@@ -1,43 +1,57 @@
 {
-  "activeTheme": "jungle",
+  "activeTheme": "stadt",
   "themes": {
-    "ocean": {
-      "image": "ocean.png",
-      "zones": [
+    "stadt": {
+      "image": "stadt.png",
+      "categories": [
         {
-          "id": "top",
-          "yStartPct": 0,
-          "yEndPct": 40
+          "id": "pedestrian",
+          "icon": "🚶",
+          "label": "Fußgänger",
+          "style": "pedestrian",
+          "yMinPct": 67,
+          "yMaxPct": 100,
+          "speedMin": 0.1,
+          "speedMax": 0.15,
+          "template": "/media/drawing-template-pedestrian.svg",
+          "templateSize": "30% auto"
         },
         {
-          "id": "middle",
-          "yStartPct": 40,
-          "yEndPct": 60
+          "id": "car",
+          "icon": "🚗",
+          "label": "Auto",
+          "style": "car",
+          "yMinPct": 55,
+          "yMaxPct": 56,
+          "speedMin": 0.22,
+          "speedMax": 0.35,
+          "template": "/media/drawing-template-car.svg",
+          "templateSize": "88% auto",
+          "scalePct": 92
         },
         {
-          "id": "bottom",
-          "yStartPct": 60,
-          "yEndPct": 100
-        }
-      ]
-    },
-    "jungle": {
-      "image": "jungle.png",
-      "zones": [
-        {
-          "id": "top",
-          "yStartPct": 0,
-          "yEndPct": 40
+          "id": "airplane",
+          "icon": "✈️",
+          "label": "Flugzeug",
+          "style": "airplane",
+          "yMinPct": 4,
+          "yMaxPct": 30,
+          "speedMin": 0.22,
+          "speedMax": 0.36,
+          "template": "/media/drawing-template-airplane.svg",
+          "templateSize": "72% auto"
         },
         {
-          "id": "middle",
-          "yStartPct": 40,
-          "yEndPct": 70
-        },
-        {
-          "id": "bottom",
-          "yStartPct": 70,
-          "yEndPct": 100
+          "id": "watercraft",
+          "icon": "🚤",
+          "label": "Wasserverkehr",
+          "style": "watercraft",
+          "yMinPct": 72,
+          "yMaxPct": 90,
+          "speedMin": 0.16,
+          "speedMax": 0.26,
+          "template": "/media/drawing-template-watercraft.svg",
+          "templateSize": "50% auto"
         }
       ]
     }
