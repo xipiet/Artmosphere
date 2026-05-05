@@ -1,7 +1,3 @@
-// NEXT TODOs
-// - Button aus Dialog Bubble ab Step 2 weg, dafür X zum Tutorial abbrechen
-// - universelles Maskottchen für alle Themenes (Ideen: Reddit-ähnliches Viech, Chamäleon, Farbpalette, Pinsel...)
-
 const overlayElem = document.getElementById("kids-tutorial-overlay");
 const mascotElem = document.getElementById("kids-tutorial-mascot");
 const kidsTextElem = document.getElementById("kids-tutorial-text");
@@ -20,7 +16,7 @@ function getMascot() {
   } else if (theme === "jungle") {
     return { name: "Momo", image: "/media/monkey-mascot.png"};
   } else if (theme === "stadt") {
-    return { name: "Blabla", image: "/media/monkey-mascot.png"};
+    return { name: "Arti", image: "/media/universal-mascot-arti-color-only.png"};
   }
 }
 
@@ -32,19 +28,22 @@ const kidsTutorial = {
     intro: {
       text: `Hey, ich bin ${mascotInfo.name}.<br>Lass uns etwas zeichnen!`,
       mascot: mascotInfo.image,
-      next: () => isDrawViewActive() ? "draw" : "category"
+      next: () => isDrawViewActive() ? "draw" : "category",
+      showContinueBtn: true
     },
     category: {
-      text: "Wir wählen zuerst eine Kategorie aus, welche wir zeichnen wollen.",
+      text: "Wähle zuerst eine Kategorie aus, welche du zeichnen möchtest.",
       mascot: mascotInfo.image,
       highlight: "#cardsContainer",
       continuesOnClick: true,
-      next: () => "draw"
+      next: () => "draw",
+      showContinueBtn: false
     },
     draw: {
       text: "Jetzt wird gezeichnet! 🎨",
       mascot: mascotInfo.image,
-      next: () => null
+      next: () => null,
+      showContinueBtn: true
     }
   }
 }
@@ -70,6 +69,12 @@ function showCurrentStep() {
   kidsTextElem.innerHTML = step.text;
   setMascot(step.mascot);
 
+  if (step.showContinueBtn === false) {
+    continueBtn.classList.add("hidden");
+  } else {
+    continueBtn.classList.remove("hidden");
+  }
+
   clearHighlight();
   if (step.highlight) {
     highlightElement(step.highlight, step.continuesOnClick);
@@ -91,7 +96,12 @@ continueBtn.addEventListener("click", () => {
     kidsTutorial.currentKey = nextKey;
     showCurrentStep();
   }
-})
+});
+
+document.getElementById("kids-tutorial-close-btn").addEventListener("click", () => {
+  skipCloseBtn = true;
+  endTutorial();
+});
 
 function showOverlay() {
   overlayElem.classList.add("active");
@@ -242,6 +252,7 @@ function clearTutorialUI() {
 function endTutorial() {
   clearTutorialUI();
   socket.emit("kidsMode:set", false);
+  kidsTutorial.currentKey = "intro";
 }
 
 window.endTutorial = endTutorial;

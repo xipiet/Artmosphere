@@ -18,6 +18,7 @@ In production the app runs as a long-lived `node server.js` process. To deploy a
 - `/` → `index.html` (landing)
 - `/main` → display canvas (`main.html` + `main.js`) — drives the projected/visualized output
 - `/ipad` → drawing tablet, category-based input (`ipad.html` + `ipad.js`)
+- `/ipad-kids` → implements optional guided tutorial mode using the iPad interface (`ipad-kids.html` + `ipad-kids.js`)
 - `/ipad-endscreen` → name-entry screen after sending a drawing
 - `/admin` → operator panel for theme + gallery settings
 - `/theme-image/:filename` → serves theme background images from `public/themes/`
