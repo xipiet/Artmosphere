@@ -27,8 +27,6 @@ const undoStack = [];
 const redoStack = [];
 const MAX_HISTORY_STEPS = 35;
 
-let initialized = false;
-
 // THEME DISPLAY
 let bgImg = new Image();
 function drawBgImage() {
@@ -465,12 +463,6 @@ async function loadKidsUI() {
 socket.on("kidsMode:update", async (d) => { 
     const newMode = d.kidsMode; 
     checkbox.checked = newMode;
-
-    if (!initialized) { 
-        initialized = true; 
-        kidsMode = newMode; 
-        return; 
-    } 
     
     if (newMode) {
         await loadKidsUI();
@@ -490,9 +482,10 @@ socket.on("kidsMode:update", async (d) => {
         document.getElementById("kids-ui").style.display = "block";
     } else {
         document.getElementById("kids-ui").style.display = "none";
+        if (typeof window.clearTutorialUI === 'function') {
+            window.clearTutorialUI();
+        }
     }
-    
-    kidsMode = newMode;
 });
 
 setTimeout(resizeBg, 120);

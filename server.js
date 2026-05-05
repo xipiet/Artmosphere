@@ -568,13 +568,6 @@ io.on("connection", (socket) => {
     }
     if (typeof ack === 'function') ack({ ok: true });
   });
-
-
-  // Disconnect Cleanup
-  socket.on("disconnect", () => {
-    delete global.deviceModes[socket.id];
-    console.log("Client disconnected:", socket.id);
-  });
 });
 
 // ----------------------------------

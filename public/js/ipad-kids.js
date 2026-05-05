@@ -14,7 +14,9 @@ function getMascot() {
     return { name: "Finn", image: "/media/shark-mascot-1.png"};
   } else if (theme === "jungle") {
     return { name: "Momo", image: "/media/monkey-mascot.png"};
-  } 
+  } else if (theme === "stadt") {
+    return { name: "Blabla", image: "/media/monkey-mascot.png"};
+  }
 }
 const mascotInfo = getMascot();
 
@@ -24,12 +26,12 @@ const kidsTutorial = {
     intro: {
       text: `Hey, ich bin ${mascotInfo.name}.<br>Lass uns etwas zeichnen!`,
       mascot: mascotInfo.image,
-      next: () => isDrawViewActive() ? "draw" : "zone"
+      next: () => isDrawViewActive() ? "draw" : "category"
     },
-    zone: {
-      text: "Wir wählen zuerst eine Zone aus, in der wir zeichnen wollen.",
+    category: {
+      text: "Wir wählen zuerst eine Kategorie aus, welche wir zeichnen wollen.",
       mascot: mascotInfo.image,
-      highlight: ".zone-0",
+      highlight: "#cardsContainer",
       continuesOnClick: true,
       next: () => "draw"
     },
@@ -141,7 +143,7 @@ function highlightElement(selector, continuesOnClick = false) {
   hole.style.top = (rect.top - 4) + "px";
   hole.style.left = (rect.left - 4) + "px";
   hole.style.width = (rect.width + 8) + "px";
-  hole.style.height = (rect.height + 4) + "px";
+  hole.style.height = (rect.height + 8) + "px";
   document.body.appendChild(hole);
   
   currentHighlightElem = elem;
@@ -183,10 +185,18 @@ function hideOverlay() {
   overlayElem.classList.remove("active");
 }
 
-function endTutorial() {
+function clearTutorialUI() {
   clearHighlight();
   hideOverlay();
+}
+
+function endTutorial() {
+  clearTutorialUI();
   socket.emit("kidsMode:set", false);
 }
 
-showCurrentStep();
+window.endTutorial = endTutorial;
+
+if (window.kidsMode) {
+  showCurrentStep();
+}
