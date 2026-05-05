@@ -2,9 +2,6 @@
   position: fixed;
   inset: 0;
   background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 1003;
   opacity: 0;
   pointer-events: none;
@@ -21,13 +18,15 @@
 }
 
 #kids-tutorial-dialog {
+  position: fixed;
   display: flex;
   align-items: center;
   gap: 20px;
+  transform: translate(-50%, -50%);
 }
 
 #kids-tutorial-mascot {
-  width: 160px;
+  width: 128px;
   height: auto;
 }
 
