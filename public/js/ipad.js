@@ -419,4 +419,73 @@ helpModal.addEventListener("click", (e) => {
     if (e.target === helpModal) closeHelpModal();
 });
 
+// KIDS MODE TOGGLE
+const checkbox = document.querySelector("#toggle-button-1 .toggle-checkbox");
+checkbox.addEventListener("change", () => {
+    const kidsMode = checkbox.checked;
+    socket.emit("kidsMode:set", kidsMode);
+});
+
+// KIDS MODE (wird wie eine Art Modul geladen)
+async function loadKidsUI() {
+    const container = document.getElementById("kids-ui");
+
+    if (!container) {
+        console.error("kids-ui container not found");
+        return;
+    }
+
+    if (container.dataset.loaded === "true") return;
+
+    // HTML laden
+    const res = await fetch("/ipad-kids.html");
+    container.innerHTML = await res.text();
+
+    // CSS laden
+    if (!document.getElementById("kids-css")) {
+        const link = document.createElement("link");
+        link.id = "kids-css";
+        link.rel = "stylesheet";
+        link.href = "/css/ipad-kids.css";
+        document.head.appendChild(link);
+    }
+
+    // JS laden
+    const script = document.createElement("script");
+    script.src = "/js/ipad-kids.js";
+    script.defer = true;
+    script.addEventListener("load", () => { script.dataset.ready = "true"; });
+    document.body.appendChild(script);
+
+    container.dataset.loaded = "true";
+}
+
+socket.on("kidsMode:update", async (d) => { 
+    const newMode = d.kidsMode; 
+    checkbox.checked = newMode;
+    
+    if (newMode) {
+        await loadKidsUI();
+        document.getElementById("kids-ui").style.display = "block";
+        
+        await new Promise((resolve) => {
+            const script = document.querySelector('script[src="/js/ipad-kids.js"]');
+            if (script && script.dataset.ready === "true") {
+                resolve();
+            } else {
+                script.addEventListener("load", resolve, { once: true });
+            }
+        });
+
+        kidsTutorial.currentKey = "intro";
+        showCurrentStep();
+        document.getElementById("kids-ui").style.display = "block";
+    } else {
+        document.getElementById("kids-ui").style.display = "none";
+        if (typeof window.clearTutorialUI === 'function') {
+            window.clearTutorialUI();
+        }
+    }
+});
+
 setTimeout(resizeBg, 120);

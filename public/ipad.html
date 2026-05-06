@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="de">
+  
   <head>
     <meta charset="utf-8" />
     <title>iPad Draw - Kategorien</title>
@@ -9,6 +10,19 @@
   </head>
 
   <body>
+    <!-- KIDS MODE TOGGLE -->
+    <div class="kidsModeToggle-container">
+      <div class="toggle-button-cover">
+        <div class="toggle-button-inner">
+          <div class="toggle-button r" id="toggle-button-1">
+            <input type="checkbox" class="toggle-checkbox" />
+            <div class="toggle-knobs"></div>
+            <div class="toggle-layer"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- CATEGORY SELECTION VIEW -->
     <div id="categoryView">
       <button id="helpBtnCategory" class="help-btn">?</button>
@@ -67,14 +81,18 @@
       <div class="modal-content">
         <button class="modal-close">&times;</button>
         <h2>Wie funktioniert es?</h2>
-        <p>Du befindest dich jetzt in der kreativen Zone unserer Atmosphere Installation. Das Thema dieses Raums ist eine <span id="themeName">Atmosphäre</span>.</p>
+        <p>Du befindest dich jetzt in der kreativen Zone unserer Artmosphere Installation. Das Thema dieses Raums ist eine <span id="themeName">Atmosphäre</span>.</p>
         <p>Wähle zuerst eine Kategorie: Fußgänger, Auto, Flugzeug oder Wasserverkehr. Dann gelangst du zu einer Zeichenfläche, auf der du dein eigenes Kunstwerk malen kannst.</p>
         <p>Deine Zeichnung wird anschließend in den echten Raum projiziert und bewegt sich je nach gewählter Kategorie: Fußgänger gehen, Autos fahren, Flugzeuge fliegen, Boote und Jetskis fahren durchs Wasser!</p>
         <p>Viel Spaß dabei, deiner Fantasie freien Lauf zu lassen!</p>
       </div>
     </div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/ipad.js" defer></script>
-  </body>
+  <!-- KIDS MODE UI -->
+  <div id="kids-ui" class="hidden"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/ipad.js" defer></script>
+</body>
+
 </html>
