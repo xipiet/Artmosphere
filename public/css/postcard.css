@@ -1,0 +1,80 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+    width: 1080px;
+    height: 1320px;
+    overflow: hidden;
+    background: #d8d4cc;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.polaroid {
+    width: 1080px;
+    height: 1320px;
+    background: #fdfcf7;
+    padding: 60px 60px 0 60px;
+    position: relative;
+    box-shadow: inset 0 0 60px rgba(0,0,0,0.04);
+}
+
+.image-frame {
+    width: 960px;
+    height: 960px;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 1px solid #ece7dc;
+}
+
+.image-frame img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+}
+
+.caption {
+    height: 240px;
+    padding: 30px 0 0 0;
+    text-align: center;
+    color: #2a2a2a;
+}
+
+.name {
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 96px;
+    line-height: 1;
+    color: #222;
+    text-transform: capitalize;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.meta {
+    margin-top: 18px;
+    font-size: 30px;
+    color: #6a6a6a;
+    letter-spacing: 0.02em;
+}
+
+.meta .dot {
+    margin: 0 14px;
+    color: #b8b3a7;
+}
+
+.brand {
+    position: absolute;
+    bottom: 28px;
+    right: 50px;
+    font-size: 22px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #b0a99a;
+}
