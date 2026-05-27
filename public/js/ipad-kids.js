@@ -20,6 +20,16 @@ function getMascot() {
   }
 }
 
+// ---------- NEXT TODOs -----------
+// FIX: bei Steps in der Toolbar und auch die Controls unten rutschen beim highlighten die Elemente rum, weil sie position: fixed bekommen. 
+// Lösungsidee: statt die Elemente selbst zu highlighten, hier nur eine "Hülle" drüber legen, die die gleiche Größe und Position hat, aber pointer-events: none,
+// weil hier eigentlich nicht so wichtig, dass man direkt anklicken kann.
+// ---------------------------------
+// aber im hierfür müsste wohl noch mal ne ganz neue andere Variante des Highlightings implementiert werden...
+// oder doch nicht? evtl. nur je nach Step entscheiden, ob man Highlight die Klassen fixed/absolute und pointer-events gibt oder nicht? 
+// evtl. einfach in separaten css-Klassen definieren und diese zuweisen?
+// ---------------------------------
+
 const mascotInfo = getMascot();
 
 const kidsTutorial = {
@@ -28,23 +38,106 @@ const kidsTutorial = {
     intro: {
       text: `Hey, ich bin ${mascotInfo.name}.<br>Lass uns etwas zeichnen!`,
       mascot: mascotInfo.image,
-      next: () => isDrawViewActive() ? "draw" : "category",
+      next: () => isDrawViewActive() ? "drawView" : "categoryView",
       showContinueBtn: true
     },
-    category: {
+    categoryView: {
       text: "Wähle zuerst eine Kategorie aus, welche du zeichnen möchtest.",
       mascot: mascotInfo.image,
       highlight: "#cardsContainer",
       continuesOnClick: true,
-      next: () => "draw",
+      next: () => "drawView",
       showContinueBtn: false
     },
-    draw: {
+    drawView: {
       text: "Jetzt wird gezeichnet! 🎨",
+      mascot: mascotInfo.image,
+      next: () => "colors",
+      showContinueBtn: true
+    },
+    colors: {
+      text: "Such dir eine Farbe aus.",
+      mascot: mascotInfo.image,
+      highlight: "#colors",
+      next: () => "strokeSlider",
+      showContinueBtn: true
+    },
+    strokeSlider: {
+      text: "Hier kannst du den Stift dicker oder dünner machen.",
+      mascot: mascotInfo.image,
+      highlight: "#stroke-slider",
+      next: () => "toolPicker",
+      showContinueBtn: true
+    },
+    toolPicker: {
+      text: "Wähle hier ein Werkzeug aus...",
+      mascot: mascotInfo.image,
+      highlight: "#toolPicker",
+      next: () => "pencil",
+      showContinueBtn: true
+    },
+    pencil: {
+      text: "Mit dem Stift zeichnest du Linien.",
+      mascot: mascotInfo.image,
+      highlight: "#drawTool",
+      next: () => "fillTool",
+      showContinueBtn: true
+    },
+    fillTool: {
+      text: "Mit dem Farbeimer füllst du Flächen.",
+      mascot: mascotInfo.image,
+      highlight: "#fillTool",
+      next: () => "eraser",
+      showContinueBtn: true
+    },
+    eraser: {
+      text: "Mit dem Radierer kannst du Fehler korrigieren.",
+      mascot: mascotInfo.image,
+      highlight: "#erase",
+      next: () => "undoRedo",
+      showContinueBtn: true
+    },
+    undoRedo: {
+      text: "Hast du dich vertan? Kein Problem!<br><br>Einfach hier rückgängig machen oder wiederherstellen.",
+      mascot: mascotInfo.image,
+      highlight: "#historyControls",
+      next: () => "directionPicker",
+      showContinueBtn: true
+    },
+    directionPicker: {
+      text: "Deine Zeichnung wird sich bewegen.<br>Hier kannst du die Richtung der Bewegung ändern.",
+      mascot: mascotInfo.image,
+      highlight: "#directionPicker",
+      next: () => "backToCategory",
+      showContinueBtn: true
+    },
+    backToCategory: {
+      text: "Du wolltest eigentlich eine andere Kategorie? Hier geht's zurück!",
+      mascot: mascotInfo.image,
+      highlight: "#back",
+      next: () => "clearDrawing",
+      showContinueBtn: true
+    },
+    clearDrawing: {
+      text: "Hier kannst du deine gesamte Zeichnung löschen und von vorne anfangen.",
+      mascot: mascotInfo.image,
+      highlight: "#clear",
+      next: () => "send",
+      showContinueBtn: true
+    },
+    send: {
+      text: "Bist du fertig? Dann kannst du hier deine Zeichnung abschicken und sie wird lebendig!",
+      mascot: mascotInfo.image,
+      highlight: "#send",
+      next: () => "drawArea",
+      showContinueBtn: true
+    },
+    drawArea: {
+      text: "Und nun leg los!<br>Du kannst die gezeigte Vorlage zur Hilfe nutzen, oder einfach malen wie du möchtest.",
       mascot: mascotInfo.image,
       next: () => null,
       showContinueBtn: true
-    }
+    },    
   }
 }
 
@@ -199,11 +292,12 @@ function highlightElement(selector, continuesOnClick = false) {
         endTutorial();
       }
     };
-  } else {
-    highlightClickHandler = () => {
-      endTutorial();
-    };
-  }
+  } 
+  // else {
+  //   highlightClickHandler = () => {
+  //     endTutorial();
+  //   };
+  // }
   elem.addEventListener("click", highlightClickHandler);
 
   const hole = document.createElement("div");
