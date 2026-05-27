@@ -98,17 +98,14 @@ function renderCategoryCards(categories) {
         const card = document.createElement('div');
         card.className = 'card';
         card.dataset.category = cat.id;
+        card.setAttribute('aria-label', cat.label || cat.id);
+        card.title = cat.label || cat.id;
 
         const icon = document.createElement('div');
         icon.className = 'card-icon';
         icon.textContent = cat.icon || '';
 
-        const title = document.createElement('div');
-        title.className = 'card-title';
-        title.textContent = cat.label || cat.id;
-
         card.appendChild(icon);
-        card.appendChild(title);
         card.addEventListener('click', () => {
             selectedCategory = cat.id;
             selectedCategoryDef = cat;

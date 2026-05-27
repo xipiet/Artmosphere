@@ -63,8 +63,8 @@ canvas#bgCanvas {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    width: 200px;
-    height: 250px;
+    width: 180px;
+    height: 180px;
     background: rgba(255, 255, 255, 0.95);
     border-radius: 16px;
     cursor: pointer;
@@ -87,8 +87,7 @@ canvas#bgCanvas {
 }
 
 .card-icon {
-    font-size: 80px;
-    margin-bottom: 16px;
+    font-size: 88px;
     animation: float 3s ease-in-out infinite;
 }
 
@@ -100,13 +99,6 @@ canvas#bgCanvas {
 @keyframes float {
     0%, 100% { transform: translateY(0px); }
     50% { transform: translateY(-12px); }
-}
-
-.card-title {
-    font-size: 22px;
-    font-weight: bold;
-    color: #333;
-    text-align: center;
 }
 
 /* DRAWING VIEW */
