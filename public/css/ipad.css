@@ -251,6 +251,18 @@ DRAW VIEW (ARTMOSPHERE DESIGN)
     transition: 0.2s ease;
 }
 
+.tool-btn,
+.history-btn {
+    font-size: 22px;
+    line-height: 1;
+    min-width: 44px;
+}
+
+#stroke-slider label {
+    font-size: 20px;
+    line-height: 1;
+}
+
 .tool-btn:hover,
 .history-btn:hover,
 .direction-btn:hover,
@@ -327,6 +339,20 @@ DRAW VIEW (ARTMOSPHERE DESIGN)
     gap: 10px;
     justify-content: center;
     flex-wrap: wrap;
+}
+
+/* DRAW VIEW LOGO */
+
+.draw-logo {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 100;
+}
+
+.draw-logo img {
+    width: 120px;
+    height: auto;
 }
 
 /* HELP */

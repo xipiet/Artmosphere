@@ -20,6 +20,9 @@
 
     <!-- DRAWING VIEW -->
     <div id="drawView">
+      <div class="draw-logo">
+        <img src="/media/favicon.png" alt="Artmosphere Logo">
+      </div>
       <button id="helpBtnDraw" class="help-btn">?</button>
       <!-- Direkt über der Toolbar -->
 <div id="toolbar-title">Zeichne dein Kunstwerk</div>
@@ -33,20 +36,19 @@
           <div class="color-btn" data-color="#ffffff" style="background:#ffffff; border:2px solid #888"></div>
         </div>
         <div id="stroke-slider">
-          <label for="sizeSlider">Stift:</label>
+          <label for="sizeSlider" aria-label="Stiftgröße">✏️</label>
           <input type="range" id="sizeSlider" min="1" max="30" value="4">
         </div>
         <div id="toolPicker" aria-label="Werkzeuge">
-          <button id="drawTool" class="tool-btn active" type="button">Stift</button>
-          <button id="fillTool" class="tool-btn" type="button">Füllen</button>
-          <button id="erase" class="tool-btn danger" type="button">Radierer</button>
+          <button id="drawTool" class="tool-btn active" type="button" aria-label="Stift">✏️</button>
+          <button id="fillTool" class="tool-btn" type="button" aria-label="Füllen">🪣</button>
+          <button id="erase" class="tool-btn danger" type="button" aria-label="Radierer">🧽</button>
         </div>
         <div id="historyControls" aria-label="Zeichenschritte">
-          <button id="undoBtn" class="history-btn" type="button" disabled>Zurück</button>
-          <button id="redoBtn" class="history-btn" type="button" disabled>Vor</button>
+          <button id="undoBtn" class="history-btn" type="button" aria-label="Zurück" disabled>↶</button>
+          <button id="redoBtn" class="history-btn" type="button" aria-label="Vor" disabled>↷</button>
         </div>
         <div id="directionPicker" aria-label="Start-Fahrtrichtung">
-          <span>Fährt:</span>
           <button class="direction-btn active" type="button" data-facing="right">→</button>
           <button class="direction-btn" type="button" data-facing="left">←</button>
         </div>
