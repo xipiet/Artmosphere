@@ -1,14 +1,14 @@
 html, body { 
     margin: 0; 
     padding: 0; 
-    width: 100vw; 
-    height: 100vh; 
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
     background: #eef4f8; 
     font-family: sans-serif; 
     display: flex; 
     flex-direction: column; 
     align-items: stretch;
-    overflow: hidden;
 }
     
 /* CATEGORY VIEW */
@@ -105,60 +105,107 @@ canvas#bgCanvas {
     text-align: center;
 }
 
-/* DRAWING VIEW */
+/* ===================================
+DRAW VIEW (ARTMOSPHERE DESIGN)
+=================================== */
+
 #drawView {
     display: none;
-    width: 100%;
+    width: 100vw;
+    height: 100vh;
+    min-height: 100vh;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    justify-content: center;   /* Alles mittig */
+    gap: 18px;
+    overflow: hidden;
+
     --drawing-template-image: none;
     --drawing-template-size: 88% auto;
+
+    background:
+        radial-gradient(circle at 20% 20%, rgba(140,0,255,0.30), transparent 30%),
+        radial-gradient(circle at 80% 30%, rgba(90,0,255,0.22), transparent 35%),
+        radial-gradient(circle at 50% 80%, rgba(180,0,255,0.18), transparent 30%),
+        #050505;
 }
 
+/* TOOLBAR */
+
+/* TOOLBAR */
 #toolbar {
     display: flex;
     gap: 10px;
-    padding: 12px;
-    background: rgba(255,255,255,0.96);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.16);
-    margin-top: 14px;
-    border: 1px solid rgba(0,0,0,0.08);
-    border-radius: 8px;
+    padding: 14px 18px;
+    background: rgba(255,255,255,0.05);
+    box-shadow: 0 0 24px rgba(140,0,255,0.25);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 18px;
     align-items: center;
+    justify-content: center;
     flex-wrap: wrap;
+    backdrop-filter: blur(18px);
+    width: fit-content;
+    max-width: 92%;
+
+    /* neu */
+    position: relative;
+    overflow: hidden;
 }
+
+/* Lila Neon läuft einmal komplett durch */
+#toolbar::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(180,0,255,0.22),
+        transparent
+    );
+    animation: toolbarGlow 4s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes toolbarGlow {
+    0%   { left: -100%; }
+    100% { left: 100%; }
+}
+
+/* COLOR PICKER */
 
 #colors {
     display: flex;
     gap: 7px;
-    padding: 5px;
-    background: #f3f6f8;
-    border: 1px solid #dbe3e8;
-    border-radius: 8px;
+    padding: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
 }
 
 .color-btn {
-    width: 30px;
-    height: 30px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
-    border: 2px solid #fff;
-    box-shadow: 0 0 0 1px rgba(0,0,0,0.2);
+    border: 2px solid white;
     cursor: pointer;
     transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
 .color-btn.active {
-    box-shadow: 0 0 0 3px #00a8cc;
+    transform: scale(1.15);
+    box-shadow: 0 0 0 3px #c86cff;
 }
 
 .color-btn:hover {
-    transform: translateY(-2px) scale(1.04);
+    transform: translateY(-2px) scale(1.05);
 }
 
-.color-btn:active {
-    transform: scale(0.94);
-}
+/* SLIDER */
 
 #stroke-slider {
     display: flex;
@@ -166,21 +213,28 @@ canvas#bgCanvas {
     gap: 6px;
     min-width: 120px;
     padding: 6px 8px;
-    background: #f3f6f8;
-    border: 1px solid #dbe3e8;
-    border-radius: 8px;
-    color: #23313a;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    color: white;
     font-size: 14px;
 }
 
-#toolPicker {
+/* GROUPS */
+
+#toolPicker,
+#historyControls,
+#directionPicker {
     display: flex;
     gap: 6px;
     padding: 5px;
-    background: #f3f6f8;
-    border: 1px solid #dbe3e8;
-    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    color: white;
 }
+
+/* BUTTONS */
 
 .tool-btn,
 .history-btn,
@@ -188,122 +242,73 @@ canvas#bgCanvas {
 #controls button {
     min-height: 32px;
     padding: 6px 12px;
-    border: 2px solid transparent;
-    border-radius: 6px;
-    background: #fff;
-    color: #24323a;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.06);
+    color: white;
     cursor: pointer;
     font-weight: 700;
-    box-shadow: 0 2px 0 rgba(0,0,0,0.12);
-    transition:
-        transform 0.16s ease,
-        box-shadow 0.16s ease,
-        border-color 0.16s ease,
-        background 0.16s ease,
-        opacity 0.16s ease;
+    transition: 0.2s ease;
 }
 
 .tool-btn:hover,
 .history-btn:hover,
 .direction-btn:hover,
 #controls button:hover {
+    background: rgba(170,0,255,0.25);
+    box-shadow: 0 0 15px rgba(170,0,255,0.45);
     transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.16);
 }
 
-.tool-btn:active,
-.history-btn:active,
-.direction-btn:active,
-#controls button:active {
-    transform: translateY(1px) scale(0.98);
-    box-shadow: 0 1px 0 rgba(0,0,0,0.16);
-}
-
-.tool-btn.active {
-    border-color: #00a8cc;
-    background: #dff7fc;
+.tool-btn.active,
+.direction-btn.active {
+    background: rgba(180,0,255,0.35);
+    box-shadow: 0 0 18px rgba(180,0,255,0.55);
 }
 
 .tool-btn.danger.active {
-    border-color: #ff5050;
-    background: #ffe8e8;
-}
-
-#historyControls {
-    display: flex;
-    gap: 6px;
-    padding: 5px;
-    background: #f3f6f8;
-    border: 1px solid #dbe3e8;
-    border-radius: 8px;
-}
-
-.history-btn {
-    min-width: 72px;
+    background: rgba(255,60,60,0.35);
 }
 
 .history-btn:disabled {
     opacity: 0.42;
     cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
 }
 
-.history-btn:disabled:hover {
-    transform: none;
-    box-shadow: none;
-}
-
-#directionPicker {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 7px;
-    background: #f3f6f8;
-    border: 1px solid #dbe3e8;
-    border-radius: 8px;
-    font-size: 14px;
-    color: #333;
-}
-
-.direction-btn {
-    width: 34px;
-    height: 30px;
-    padding: 0;
-    font-size: 18px;
-    line-height: 1;
-}
-
-.direction-btn.active {
-    border-color: #00a8cc;
-    background: #dff7fc;
-    font-weight: bold;
-}
+/* CANVAS */
 
 #drawingCanvasFrame {
     position: relative;
-    margin-top: 15px;
-    width: 800px;
-    height: 500px;
-    background: #fff;
-    box-shadow: 0 0 10px rgba(0,0,0,0.2);
-    border-radius: 8px;
+    width: 860px;
+    height: 540px;
+    background: rgba(255,255,255,0.03);
+    box-shadow:
+        0 0 25px rgba(140,0,255,0.25),
+        inset 0 0 20px rgba(255,255,255,0.02);
+    border-radius: 22px;
     overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
 }
 
 #drawingTemplate {
     position: absolute;
     inset: 0;
     background:
-        linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
+        linear-gradient(rgba(255,255,255,0.72), rgba(255,255,255,0.72)),
         var(--drawing-template-image) center / var(--drawing-template-size) no-repeat,
         #fff;
-    transform-origin: center;
-    transition: transform 0.18s ease;
+
+    transform: scaleX(1);
+    transform-origin: center center;
+    transition: transform 0.25s ease;
 }
 
 #drawView[data-facing="left"] #drawingTemplate {
     transform: scaleX(-1);
+}
+
+#drawView[data-facing="right"] #drawingTemplate {
+    transform: scaleX(1);
 }
 
 #drawArea {
@@ -315,20 +320,17 @@ canvas#bgCanvas {
     cursor: crosshair;
 }
 
+/* BOTTOM CONTROLS */
+
 #controls {
-    margin-top: 15px;
     display: flex;
     gap: 10px;
-    margin-bottom: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
-#controls button {
-    padding: 9px 14px;
-    font-size: 16px;
-    border-color: rgba(0,0,0,0.12);
-}
+/* HELP */
 
-/* HELP BUTTON AND MODAL */
 .help-btn {
     position: fixed;
     top: 20px;
@@ -337,43 +339,23 @@ canvas#bgCanvas {
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: #00a8cc;
+    background: rgba(170,0,255,0.28);
     color: white;
     border: none;
     font-size: 24px;
     font-weight: bold;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-    transition: background 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.help-btn:hover {
-    background: #0088aa;
-}
-
-.help-btn:active {
-    transform: scale(0.95);
+    box-shadow: 0 0 18px rgba(180,0,255,0.55);
 }
 
 /* MODAL */
+
 .modal {
     display: none;
     position: fixed;
     z-index: 1000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.5);
-    animation: fadeIn 0.3s ease;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    inset: 0;
+    background: rgba(0,0,0,0.7);
 }
 
 .modal.show {
@@ -383,40 +365,25 @@ canvas#bgCanvas {
 }
 
 .modal-content {
-    background: white;
+    background: rgba(20,20,20,0.96);
     padding: 30px;
-    border-radius: 12px;
+    border-radius: 20px;
     max-width: 600px;
     max-height: 80vh;
     overflow-y: auto;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    animation: slideUp 0.3s ease;
+    box-shadow: 0 0 30px rgba(150,0,255,0.35);
     position: relative;
-}
-
-@keyframes slideUp {
-    from {
-        transform: translateY(20px);
-        opacity: 0;
-    }
-    to {
-        transform: translateY(0);
-        opacity: 1;
-    }
+    color: white;
 }
 
 .modal-content h2 {
     margin-top: 0;
-    margin-bottom: 16px;
-    color: #00a8cc;
-    font-size: 24px;
+    color: #d58cff;
 }
 
 .modal-content p {
-    margin: 12px 0;
+    color: #eee;
     line-height: 1.6;
-    color: #333;
-    font-size: 16px;
 }
 
 .modal-close {
@@ -424,15 +391,16 @@ canvas#bgCanvas {
     top: 10px;
     right: 10px;
     font-size: 28px;
-    font-weight: bold;
     border: none;
     background: none;
+    color: white;
     cursor: pointer;
-    color: #666;
-    padding: 0 8px;
-    transition: color 0.2s ease;
 }
-
-.modal-close:hover {
-    color: #000;
+#toolbar-title {
+    color: #fff;
+    text-align: center;
+    font-size: 1.3rem;
+    margin-bottom: 18px;
+    font-weight: 500;
+    letter-spacing: 0.03em;
 }
