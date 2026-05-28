@@ -99,11 +99,12 @@ class FloatingImage {
             this.laneDriftAmplitude = Math.random() * 8 + 4;
             this.rollAmplitude = Math.random() * 0.012 + 0.008;
         } else if (this.style === 'airplane') {
-            this.vy = (Math.random() * 0.02 + 0.008) * (Math.random() < 0.5 ? 1 : -1);
+            this.vy = (Math.random() * 0.01 + 0.004) * (Math.random() < 0.5 ? 1 : -1);
             this.flightPhase = Math.random() * Math.PI * 2;
-            this.flightSpeed = Math.random() * 0.015 + 0.01;
-            this.altitudeAmplitude = Math.random() * 16 + 10;
-            this.bankAmplitude = Math.random() * 0.045 + 0.025;
+            this.flightSpeed = Math.random() * 0.011 + 0.008;
+            this.altitudeAmplitude = Math.random() * 10 + 16;
+            this.bankAmplitude = Math.random() * 0.05 + 0.03;
+            this.gustAmplitude = Math.random() * 2 + 1.5;
         } else if (this.style === 'watercraft') {
             this.vy = (Math.random() * 0.025 + 0.01) * (Math.random() < 0.5 ? 1 : -1);
             this.wavePhase = Math.random() * Math.PI * 2;
@@ -151,12 +152,19 @@ class FloatingImage {
                 this.rotation = Math.sin(road * 2.4) * this.rollAmplitude;
             } else if (this.style === 'airplane') {
                 const flight = this.age * this.flightSpeed + this.flightPhase;
-                const altitude = Math.sin(flight) * this.altitudeAmplitude;
-                const speedPulse = 1 + Math.sin(flight * 0.8) * 0.1;
+                const prevY = this.y;
+                const altitude = Math.sin(flight * 0.5) * this.altitudeAmplitude;
+                const turbulence = Math.sin(flight * 1.9) * this.gustAmplitude;
+                const speedPulse = 1 + Math.sin(flight * 0.72) * 0.055;
                 this.x += this.vx * (speedPulse - 1);
                 this.bounceHorizontally();
-                this.y = this.baseY + altitude;
-                this.rotation = Math.sin(flight + Math.PI / 4) * this.bankAmplitude * (this.vx >= 0 ? 1 : -1);
+                this.y = Math.min(Math.max(this.baseY + altitude + turbulence, yMin), yMax);
+
+                const direction = this.vx >= 0 ? 1 : -1;
+                const verticalVelocity = this.y - prevY;
+                const climbBank = Math.max(-this.bankAmplitude, Math.min(this.bankAmplitude, verticalVelocity * 0.012));
+                const wingRock = Math.sin(flight * 0.83 + Math.PI / 5) * this.bankAmplitude * 0.35;
+                this.rotation = (climbBank + wingRock) * direction;
             } else if (this.style === 'watercraft') {
                 const wave = this.age * this.waveSpeed + this.wavePhase;
                 const bob = Math.sin(wave) * this.bobAmplitude;
@@ -213,22 +221,31 @@ class FloatingImage {
         if (this.style === 'airplane') {
             const trailDirection = this.vx >= 0 ? -1 : 1;
             ctx.save();
-            ctx.globalAlpha = alpha * 0.22;
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.lineWidth = 2;
             ctx.lineCap = 'round';
-            for (let i = 0; i < 3; i++) {
-                const trailOffset = 22 + i * 22;
-                const lift = Math.sin(this.age * 0.035 + i) * 7;
-                ctx.beginPath();
-                ctx.moveTo(centerX + trailDirection * trailOffset, centerY + lift);
-                ctx.quadraticCurveTo(
-                    centerX + trailDirection * (trailOffset + 20),
-                    centerY + lift - 5,
-                    centerX + trailDirection * (trailOffset + 44),
-                    centerY + lift
-                );
-                ctx.stroke();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.86)';
+
+            for (let side = -1; side <= 1; side += 2) {
+                const wingY = centerY + side * this.h * 0.18;
+                for (let i = 0; i < 5; i++) {
+                    const trailOffset = this.w * 0.34 + i * 24;
+                    const fade = 1 - i / 5;
+                    const lift = Math.sin(this.age * 0.028 + i * 0.9 + side) * (4 + i * 1.2);
+
+                    ctx.globalAlpha = alpha * 0.34 * fade;
+                    ctx.lineWidth = Math.max(1.4, 3 - i * 0.24);
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        centerX + trailDirection * trailOffset,
+                        wingY + lift
+                    );
+                    ctx.quadraticCurveTo(
+                        centerX + trailDirection * (trailOffset + 18),
+                        wingY + lift + side * 1.5,
+                        centerX + trailDirection * (trailOffset + 42),
+                        wingY + lift + Math.sin(this.age * 0.04 + i) * 3
+                    );
+                    ctx.stroke();
+                }
             }
             ctx.restore();
             this.drawDirectionalImage(alpha, centerX, centerY);
