@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scoreboard - Artmosphere</title>
+
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="stylesheet" href="/css/scoreboard.css">
+  </head>
+
+  <body>
+    <video autoplay muted loop>
+      <source src="/media/background.mp4" type="video/mp4">
+    </video>
+
+    <nav>
+      <div class="logo">
+        <img src="/media/favicon.png" alt="Artmosphere Logo">
+      </div>
+    </nav>
+
+    <header class="page-header">
+      <h1>Scoreboard</h1>
+    </header>
+
+    <main class="board">
+      <section class="column column-top">
+        <h2><span class="medal">🏆</span> Top 10</h2>
+        <ol class="rank-list" id="topList">
+          <li class="empty">Wird geladen…</li>
+        </ol>
+      </section>
+
+      <section class="column column-bottom">
+        <h2><span class="medal">💀</span> Bottom 10</h2>
+        <ol class="rank-list" id="bottomList">
+          <li class="empty">Wird geladen…</li>
+        </ol>
+      </section>
+    </main>
+
+    <footer class="page-footer">
+      <span id="totalCount">—</span> Werke insgesamt
+    </footer>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/scoreboard.js"></script>
+  </body>
+</html>

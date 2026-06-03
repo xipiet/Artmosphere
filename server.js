@@ -29,6 +29,15 @@ const SAVE_PATH = process.env.ARTMOSPHERE_SAVE_PATH
 const sessionStorage = new Map(); // sessionId -> { drawingDataUrl, timestamp, movementType, facingDirection, expiresAt }
 const SESSION_TTL_MS = 10 * 60 * 1000; // 10 min — unsaved drafts are dropped after this
 
+// In-memory, session-scoped scoreboard. Keyed by image id; each value is the
+// SAME object that lives in activeImages, so Kritiker score/vote mutations are
+// reflected here automatically — no save required. Entries are NOT pruned when
+// an image leaves the wall (fade/cap/drop): the board shows every work created
+// this session, saved or not. Cleared on restart (it's just RAM), which gives
+// the per-session reset for free. Grows with drawings/session — fine for an
+// event-length run.
+const scoreboardRegistry = new Map(); // imageId -> activeImages entry
+
 try {
   fs.mkdirSync(SAVE_PATH, { recursive: true });
   console.log(`Artwork save path ready: ${SAVE_PATH}`);
@@ -70,6 +79,27 @@ function sanitizeUsername(username) {
     .toLowerCase()
     .replace(/[^a-z0-9_-]/g, '_')
     .slice(0, 50);
+}
+
+// Helper: Update score+votes inside an existing metadata.json. Archival only —
+// the live scoreboard reads from the in-memory registry, not from disk; this
+// just keeps the saved record current. Writes via tmp+rename so a crash
+// mid-write can't corrupt the file (postcard.html also reads it).
+function updateSavedScore(folderName, score, votes) {
+  if (!folderName) return;
+  const metaPath = path.join(SAVE_PATH, folderName, 'metadata.json');
+  fs.readFile(metaPath, 'utf8', (readErr, raw) => {
+    if (readErr) return;
+    let meta;
+    try { meta = JSON.parse(raw); } catch { return; }
+    meta.score = score;
+    meta.votes = votes;
+    const tmpPath = `${metaPath}.tmp`;
+    fs.writeFile(tmpPath, JSON.stringify(meta, null, 2), (writeErr) => {
+      if (writeErr) return;
+      fs.rename(tmpPath, metaPath, () => {});
+    });
+  });
 }
 
 // ----------------------------------
@@ -171,6 +201,36 @@ app.get("/kritiker", (req, res) => {
 
 app.get("/postcard", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "postcard.html"));
+});
+
+app.get("/scoreboard", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "scoreboard.html"));
+});
+
+// Scoreboard data: ranks the in-memory session registry — every artwork created
+// since this server start, SAVED OR NOT. Voting mutates these same objects, so
+// scores are live without requiring a save; the board is session-scoped because
+// the registry is RAM-only.
+app.get("/api/scoreboard", (req, res) => {
+  const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 10));
+  const entries = Array.from(scoreboardRegistry.values()).map(img => ({
+    name: img.name || 'Anonym',
+    score: Number(img.score) || 0,
+    votes: img.votes || { veryGood: 0, good: 0, bad: 0, veryBad: 0 },
+    timestamp: img.timestamp || null,
+    // The drawing lives in memory as a dataUrl — usable directly as <img src>.
+    // Unsaved works have no file on disk, so this is the only thumbnail source
+    // (and it stays correct after the image fades off the wall).
+    thumb: img.dataUrl
+  }));
+
+  const byScoreDesc = entries.slice().sort((a, b) => b.score - a.score || (b.timestamp || 0) - (a.timestamp || 0));
+  const byScoreAsc  = entries.slice().sort((a, b) => a.score - b.score || (b.timestamp || 0) - (a.timestamp || 0));
+  res.json({
+    top: byScoreDesc.slice(0, limit),
+    bottom: byScoreAsc.slice(0, limit),
+    total: entries.length
+  });
 });
 
 // ----------------------------------
@@ -302,6 +362,10 @@ io.on("connection", (socket) => {
     }
 
     activeImages.push(imageData);
+    // Register for the in-memory scoreboard right away (score 0, name filled in
+    // on save). Same object ref as activeImages, so later Kritiker votes update
+    // the board automatically — and the entry survives the image leaving the wall.
+    scoreboardRegistry.set(imageId, imageData);
     io.emit("newImage", imageData);
     io.emit("admin:updateGallery", activeImages);
     // The wall-PC sees this newImage event and renders it; the headless
@@ -396,6 +460,10 @@ io.on("connection", (socket) => {
         if (moveOneStep(image, direction)) { removed = true; break; }
       }
     }
+
+    // Scoreboard updates automatically — `image` is the same object stored in
+    // scoreboardRegistry. Here we only flush the score to disk (no-op if unsaved).
+    updateSavedScore(image.savedFolder, image.score, image.votes);
 
     if (removed) {
       io.emit("admin:updateGallery", activeImages);
@@ -586,6 +654,21 @@ io.on("connection", (socket) => {
       } catch (err) {
         console.error(`[${sessionId}] polaroid render failed:`, err.message);
       }
+
+      // Bind the saved folder to the live image so subsequent Kritiker votes
+      // can flush the updated score back into metadata.json (archival on disk).
+      if (liveImage) liveImage.savedFolder = finalFolderName;
+
+      // Stamp the entered name onto the scoreboard registry entry. Done by id so
+      // it works even if the image already faded off the wall (gone from
+      // activeImages) — the registry still holds it.
+      const regEntry = scoreboardRegistry.get(sess.imageId);
+      if (regEntry) regEntry.name = trimmed;
+
+      // Tell the scoreboard the name changed (it may have been rated and shown as
+      // "Anonym" while the visitor was still on the name-entry screen). Clients
+      // refetch on this — same debounced path as votes/new images.
+      io.emit("image:saved", { id: sess.imageId, name: trimmed });
 
       console.log(`[${sessionId}] finalized → ${finalFolderName} (screenshot=${metadata.hasScreenshot} polaroid=${hasPolaroid})`);
       sessionStorage.delete(sessionId);
