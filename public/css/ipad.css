@@ -112,34 +112,126 @@ canvas#bgCanvas {
 /* DRAWING VIEW */
 #drawView {
     display: none;
-    width: 100%;
+    position: relative;
+    width: 100vw;
+    height: 100vh;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    gap: 12px;
+    overflow: hidden;
     --drawing-template-image: none;
     --drawing-template-size: 88% auto;
+}
+
+/* video background + purple brand tint — scoped to the drawing view */
+.draw-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.draw-bg video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.draw-bg::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 20% 20%, rgba(140,0,255,0.30), transparent 30%),
+        radial-gradient(circle at 80% 30%, rgba(90,0,255,0.22), transparent 35%),
+        radial-gradient(circle at 50% 80%, rgba(180,0,255,0.18), transparent 30%),
+        rgba(5,5,5,0.55);
+}
+
+/* keep the actual UI above the video + tint */
+#drawView > #toolbar,
+#drawView > #toolbar-title,
+#drawView > #drawingCanvasFrame,
+#drawView > #controls {
+    position: relative;
+    z-index: 2;
+}
+
+.draw-logo {
+    position: fixed;
+    top: 64px;
+    left: 20px;
+    z-index: 100;
+    pointer-events: none;
+}
+
+.draw-logo img {
+    width: 110px;
+    height: auto;
+    filter: drop-shadow(0 0 10px rgba(180,0,255,0.45));
+}
+
+#toolbar-title {
+    margin: 0;
+    color: #fff;
+    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    text-shadow: 0 0 14px rgba(180,0,255,0.55);
 }
 
 #toolbar {
     display: flex;
     gap: 10px;
-    padding: 12px;
-    background: rgba(255,255,255,0.96);
-    box-shadow: 0 10px 24px rgba(0,0,0,0.16);
-    margin-top: 14px;
-    border: 1px solid rgba(0,0,0,0.08);
-    border-radius: 8px;
+    padding: 14px 18px;
+    background: rgba(255,255,255,0.05);
+    box-shadow: 0 0 24px rgba(140,0,255,0.25);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 18px;
     align-items: center;
+    justify-content: center;
     flex-wrap: wrap;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    max-width: 92%;
+    position: relative;
+    overflow: hidden;
+}
+
+#toolbar > * {
+    position: relative;
+    z-index: 1;
+}
+
+#toolbar::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(180,0,255,0.22), transparent);
+    animation: toolbarGlow 4s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes toolbarGlow {
+    0%   { left: -100%; }
+    100% { left: 100%; }
 }
 
 #colors {
     display: flex;
     gap: 7px;
-    padding: 5px;
-    background: #f3f6f8;
-    border: 1px solid #dbe3e8;
-    border-radius: 8px;
+    padding: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px;
 }
 
 .color-btn {
@@ -153,7 +245,7 @@ canvas#bgCanvas {
 }
 
 .color-btn.active {
-    box-shadow: 0 0 0 3px #00a8cc;
+    box-shadow: 0 0 0 3px #c86cff;
 }
 
 .color-btn:hover {
@@ -170,20 +262,25 @@ canvas#bgCanvas {
     gap: 6px;
     min-width: 120px;
     padding: 6px 8px;
-    background: #f3f6f8;
-    border: 1px solid #dbe3e8;
-    border-radius: 8px;
-    color: #23313a;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 10px;
+    color: #fff;
     font-size: 14px;
+}
+
+#stroke-slider label {
+    font-size: 20px;
+    line-height: 1;
 }
 
 #toolPicker {
     display: flex;
     gap: 6px;
     padding: 5px;
-    background: #f3f6f8;
-    border: 1px solid #dbe3e8;
-    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 10px;
 }
 
 .tool-btn,
@@ -192,13 +289,12 @@ canvas#bgCanvas {
 #controls button {
     min-height: 32px;
     padding: 6px 12px;
-    border: 2px solid transparent;
-    border-radius: 6px;
-    background: #fff;
-    color: #24323a;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 10px;
+    background: rgba(255,255,255,0.06);
+    color: #fff;
     cursor: pointer;
     font-weight: 700;
-    box-shadow: 0 2px 0 rgba(0,0,0,0.12);
     transition:
         transform 0.16s ease,
         box-shadow 0.16s ease,
@@ -207,12 +303,20 @@ canvas#bgCanvas {
         opacity 0.16s ease;
 }
 
+.tool-btn,
+.history-btn {
+    font-size: 22px;
+    line-height: 1;
+    min-width: 44px;
+}
+
 .tool-btn:hover,
 .history-btn:hover,
 .direction-btn:hover,
 #controls button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.16);
+    background: rgba(170,0,255,0.25);
+    box-shadow: 0 0 15px rgba(170,0,255,0.45);
 }
 
 .tool-btn:active,
@@ -224,26 +328,27 @@ canvas#bgCanvas {
 }
 
 .tool-btn.active {
-    border-color: #00a8cc;
-    background: #dff7fc;
+    background: rgba(180,0,255,0.35);
+    box-shadow: 0 0 18px rgba(180,0,255,0.55);
+    border-color: rgba(180,0,255,0.5);
 }
 
 .tool-btn.danger.active {
-    border-color: #ff5050;
-    background: #ffe8e8;
+    background: rgba(255,60,60,0.35);
+    border-color: rgba(255,60,60,0.5);
 }
 
 #historyControls {
     display: flex;
     gap: 6px;
     padding: 5px;
-    background: #f3f6f8;
-    border: 1px solid #dbe3e8;
-    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 10px;
 }
 
 .history-btn {
-    min-width: 72px;
+    min-width: 44px;
 }
 
 .history-btn:disabled {
@@ -263,11 +368,11 @@ canvas#bgCanvas {
     align-items: center;
     gap: 6px;
     padding: 5px 7px;
-    background: #f3f6f8;
-    border: 1px solid #dbe3e8;
-    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 10px;
     font-size: 14px;
-    color: #333;
+    color: #fff;
 }
 
 .direction-btn {
@@ -279,20 +384,22 @@ canvas#bgCanvas {
 }
 
 .direction-btn.active {
-    border-color: #00a8cc;
-    background: #dff7fc;
+    background: rgba(180,0,255,0.35);
+    box-shadow: 0 0 18px rgba(180,0,255,0.55);
+    border-color: rgba(180,0,255,0.5);
     font-weight: bold;
 }
 
 #drawingCanvasFrame {
     position: relative;
-    margin-top: 15px;
+    margin-top: 0;
     width: 800px;
     height: 500px;
-    background: #fff;
-    box-shadow: 0 0 10px rgba(0,0,0,0.2);
-    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    box-shadow: 0 0 28px rgba(140,0,255,0.30), inset 0 0 20px rgba(255,255,255,0.02);
+    border-radius: 18px;
     overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.10);
 }
 
 #drawingTemplate {
@@ -342,13 +449,13 @@ canvas#bgCanvas {
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: #00a8cc;
+    background: rgba(170,0,255,0.30);
     color: white;
     border: none;
     font-size: 24px;
     font-weight: bold;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    box-shadow: 0 0 18px rgba(180,0,255,0.55);
     transition: background 0.3s ease;
     display: flex;
     align-items: center;
@@ -356,7 +463,7 @@ canvas#bgCanvas {
 }
 
 .help-btn:hover {
-    background: #0088aa;
+    background: rgba(180,0,255,0.45);
 }
 
 .help-btn:active {
@@ -373,7 +480,7 @@ canvas#bgCanvas {
     top: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0,0,0,0.7);
     animation: fadeIn 0.3s ease;
 }
 
@@ -389,13 +496,15 @@ canvas#bgCanvas {
 }
 
 .modal-content {
-    background: white;
+    background: rgba(20,20,20,0.96);
+    color: #fff;
     padding: 30px;
-    border-radius: 12px;
+    border-radius: 20px;
     max-width: 600px;
     max-height: 80vh;
     overflow-y: auto;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    box-shadow: 0 0 30px rgba(150,0,255,0.35);
+    border: 1px solid rgba(255,255,255,0.10);
     animation: slideUp 0.3s ease;
     position: relative;
 }
@@ -414,14 +523,14 @@ canvas#bgCanvas {
 .modal-content h2 {
     margin-top: 0;
     margin-bottom: 16px;
-    color: #00a8cc;
+    color: #d58cff;
     font-size: 24px;
 }
 
 .modal-content p {
     margin: 12px 0;
     line-height: 1.6;
-    color: #333;
+    color: #eee;
     font-size: 16px;
 }
 
@@ -434,13 +543,13 @@ canvas#bgCanvas {
     border: none;
     background: none;
     cursor: pointer;
-    color: #666;
+    color: #ccc;
     padding: 0 8px;
     transition: color 0.2s ease;
 }
 
 .modal-close:hover {
-    color: #000;
+    color: #fff;
 }
 
 
