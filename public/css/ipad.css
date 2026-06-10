@@ -632,7 +632,7 @@ canvas#bgCanvas {
   font-size: 10px;
   font-weight: bold;
   padding: 4px 8px;
-  background-color: #00a8cc;
+  background-color: #918CF9;
   border-radius: 50px;
   transition: 0.3s cubic-bezier(0.18, 0.89, 0.35, 1.15) all;
 }
