@@ -3,6 +3,7 @@
   "themes": {
     "weltall": {
       "image": "weltall.png",
+      "foregroundImage": "/media/steine_foreground_unfertig.png",
       "categories": [
         {
           "id": "plant",

@@ -2,6 +2,17 @@ const socket = io();
 const canvas = document.getElementById('mainCanvas');
 const ctx = canvas.getContext('2d');
 const statusEl = document.getElementById('status');
+const foregroundOverlay = document.getElementById('foregroundOverlay');
+
+function applyForegroundImage(theme) {
+    if (theme && theme.foregroundImage) {
+        foregroundOverlay.style.backgroundImage = `url("${theme.foregroundImage}")`;
+        foregroundOverlay.style.display = 'block';
+    } else {
+        foregroundOverlay.style.backgroundImage = 'none';
+        foregroundOverlay.style.display = 'none';
+    }
+}
 
 const TARGET_AREA = 50000; // pixels² for normalization
 const MAX_PAINTING_SIZE = 250; // max width/height in pixels
@@ -471,6 +482,7 @@ socket.on("app:init", (d) => {
     // Hintergrund laden
     const bgUrl = `/theme-image/${encodeURIComponent(theme.image)}`;
     canvas.style.backgroundImage = `url("${bgUrl}")`;
+    applyForegroundImage(theme);
 
     // Request all current images from server
     socket.emit("main:requestAllImages");
@@ -486,6 +498,7 @@ socket.on("config:changed", (config) => {
     statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
 
     canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.image)}")`;
+    applyForegroundImage(theme);
 });
 
 // CATEGORY RANGES CHANGED (admin tuned yMin/yMax/speedMin/speedMax for one

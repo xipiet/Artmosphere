@@ -14,6 +14,19 @@ canvas {
     background-position: center;
 }
 
+#foregroundOverlay {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: none;
+    z-index: 5;
+    display: none;
+}
+
 #controls {
     position: fixed;
     top: 10px;
