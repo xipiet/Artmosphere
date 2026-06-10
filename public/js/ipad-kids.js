@@ -15,20 +15,9 @@ function getMascot() {
     return { name: "Finn", image: "/media/shark-mascot-1.png"};
   } else if (theme === "jungle") {
     return { name: "Momo", image: "/media/monkey-mascot.png"};
-  } else if (theme === "stadt") {
-    return { name: "Arti", image: "/media/universal-mascot-arti-color-only.png"};
   }
+  return { name: "Arti", image: "/media/universal-mascot-arti-color-only.png"};
 }
-
-// ---------- NEXT TODOs -----------
-// FIX: bei Steps in der Toolbar und auch die Controls unten rutschen beim highlighten die Elemente rum, weil sie position: fixed bekommen. 
-// Lösungsidee: statt die Elemente selbst zu highlighten, hier nur eine "Hülle" drüber legen, die die gleiche Größe und Position hat, aber pointer-events: none,
-// weil hier eigentlich nicht so wichtig, dass man direkt anklicken kann.
-// ---------------------------------
-// aber im hierfür müsste wohl noch mal ne ganz neue andere Variante des Highlightings implementiert werden...
-// oder doch nicht? evtl. nur je nach Step entscheiden, ob man Highlight die Klassen fixed/absolute und pointer-events gibt oder nicht? 
-// evtl. einfach in separaten css-Klassen definieren und diese zuweisen?
-// ---------------------------------
 
 const mascotInfo = getMascot();
 
@@ -192,7 +181,6 @@ continueBtn.addEventListener("click", () => {
 });
 
 document.getElementById("kids-tutorial-close-btn").addEventListener("click", () => {
-  skipCloseBtn = true;
   endTutorial();
 });
 
@@ -260,16 +248,36 @@ function highlightElement(selector, continuesOnClick = false) {
     return;
   }
 
+  const rect = elem.getBoundingClientRect();
+  const computed = window.getComputedStyle(elem);
+
+  // Create a placeholder to maintain the layout flow while the original element
+  // is temporarily set to position:fixed for the highlight effect.
+  const placeholder = document.createElement("div");
+  placeholder.style.width = rect.width + "px";
+  placeholder.style.height = rect.height + "px";
+  placeholder.style.margin = computed.margin;
+  placeholder.style.flex = computed.flex;
+  placeholder.style.display = (computed.display === "inline") ? "inline-block" : computed.display;
+  placeholder.style.visibility = "hidden";
+  placeholder.style.pointerEvents = "none";
+
   originalStyles = {
     position: elem.style.position,
     top: elem.style.top,
     left: elem.style.left,
     width: elem.style.width,
     height: elem.style.height,
-    pointerEvents: elem.style.pointerEvents
+    pointerEvents: elem.style.pointerEvents,
+    placeholder: placeholder,
+    parent: elem.parentNode,
+    nextSibling: elem.nextSibling
   };
 
-  const rect = elem.getBoundingClientRect();
+  // Move the element to document.body to "escape" parent constraints 
+  // like 'backdrop-filter' or 'overflow: hidden' which break 'position: fixed' coordinates.
+  elem.parentNode.insertBefore(placeholder, elem);
+  document.body.appendChild(elem);
 
   elem.classList.add("kids-tutorial-highlight");
   elem.style.position = "fixed";
@@ -285,20 +293,17 @@ function highlightElement(selector, continuesOnClick = false) {
       hideOverlay();
       const step = kidsTutorial.steps[kidsTutorial.currentKey];
       const nextKey = step.next ? step.next() : null;
-      kidsTutorial.currentKey = nextKey || "draw";
+      kidsTutorial.currentKey = nextKey || "drawArea";
       if (nextKey) {
         showCurrentStep();
       } else {
         endTutorial();
       }
     };
-  } 
-  // else {
-  //   highlightClickHandler = () => {
-  //     endTutorial();
-  //   };
-  // }
-  elem.addEventListener("click", highlightClickHandler);
+  }
+  if (highlightClickHandler) {
+    elem.addEventListener("click", highlightClickHandler);
+  }
 
   const hole = document.createElement("div");
   hole.className = "kids-tutorial-hole";
@@ -321,12 +326,21 @@ function clearHighlight() {
     currentHighlightElem.classList.remove("kids-tutorial-highlight");
 
     if (originalStyles) {
+      // Move the element back to its original place in the DOM
+      if (originalStyles.parent) {
+        originalStyles.parent.insertBefore(currentHighlightElem, originalStyles.nextSibling);
+      }
+
       currentHighlightElem.style.position = originalStyles.position || "";
       currentHighlightElem.style.top = originalStyles.top || "";
       currentHighlightElem.style.left = originalStyles.left || "";
       currentHighlightElem.style.width = originalStyles.width || "";
       currentHighlightElem.style.height = originalStyles.height || "";
       currentHighlightElem.style.pointerEvents = originalStyles.pointerEvents || "";
+
+      if (originalStyles.placeholder) {
+        originalStyles.placeholder.remove();
+      }
     }
 
     currentHighlightElem = null;
