@@ -76,15 +76,17 @@ class FloatingImage {
         const cat = this.category;
         const xMinPct = Number.isFinite(cat.xMinPct) ? cat.xMinPct : 0;
         const xMaxPct = Number.isFinite(cat.xMaxPct) ? cat.xMaxPct : 100;
-        const xMin = canvas.width * (xMinPct / 100);
-        const xMax = Math.max(xMin, canvas.width * (xMaxPct / 100) - this.w);
+        const maxX = Math.max(0, canvas.width - this.w);
+        const xMin = Math.min(Math.max(0, canvas.width * (xMinPct / 100)), maxX);
+        const xMax = Math.min(Math.max(xMin, canvas.width * (xMaxPct / 100) - this.w), maxX);
         return { xMin, xMax };
     }
 
     yBounds() {
         const cat = this.category;
-        const yMin = canvas.height * (cat.yMinPct / 100);
-        const yMax = Math.max(yMin, canvas.height * (cat.yMaxPct / 100) - this.h);
+        const maxY = Math.max(0, canvas.height - this.h);
+        const yMin = Math.min(Math.max(0, canvas.height * (cat.yMinPct / 100)), maxY);
+        const yMax = Math.min(Math.max(yMin, canvas.height * (cat.yMaxPct / 100) - this.h), maxY);
         return { yMin, yMax };
     }
 
@@ -131,6 +133,24 @@ class FloatingImage {
             this.bobAmplitude = Math.random() * 7 + 5;
             this.driftAmplitude = Math.random() * 18 + 10;
             this.rollAmplitude = Math.random() * 0.035 + 0.025;
+        } else if (this.style === 'walk') {
+            this.vy = 0;
+            this.walkPhase = Math.random() * Math.PI * 2;
+            this.walkSpeed = Math.random() * 0.02 + 0.05;
+            this.walkBobAmplitude = Math.random() * 2 + 2;
+            this.walkTiltAmplitude = Math.random() * 0.01 + 0.012;
+        } else if (this.style === 'ufo') {
+            this.vy = 0;
+        } else if (this.style === 'sway') {
+            this.vx = 0;
+            this.vy = 0;
+            this.swayPhase = Math.random() * Math.PI * 2;
+            this.swaySpeed = Math.random() * 0.01 + 0.008;
+            this.swayAmplitude = Math.random() * 0.05 + 0.04;
+        } else if (this.style === 'spin') {
+            this.vx = 0;
+            this.vy = 0;
+            this.spinSpeed = (Math.random() * 0.0015 + 0.0008) * (Math.random() < 0.5 ? 1 : -1);
         } else {
             // 'pedestrian' or 'plain': straight horizontal
             this.vy = 0;
@@ -159,6 +179,16 @@ class FloatingImage {
             return this.updateFade();
         }
 
+        if (this.style === 'sway') {
+            this.rotation = Math.sin(this.age * this.swaySpeed + this.swayPhase) * this.swayAmplitude;
+            return this.updateFade();
+        }
+
+        if (this.style === 'spin') {
+            this.rotation += this.spinSpeed;
+            return this.updateFade();
+        }
+
         this.x += this.vx;
 
         if (this.style === 'pedestrian' || this.style === 'plain') {
@@ -167,6 +197,14 @@ class FloatingImage {
             const { yMin, yMax } = this.yBounds();
             if (this.y < yMin) this.y = yMin;
             if (this.y > yMax) this.y = yMax;
+        } else if (this.style === 'walk') {
+            this.bounceHorizontally();
+            const walk = this.age * this.walkSpeed + this.walkPhase;
+            this.y = this.baseY - Math.abs(Math.sin(walk)) * this.walkBobAmplitude;
+            this.rotation = Math.sin(walk) * this.walkTiltAmplitude;
+        } else if (this.style === 'ufo') {
+            this.bounceHorizontally();
+            this.y = this.baseY;
         } else {
             // Animated styles share a common base-band drift + sinusoidal motion
             this.bounceHorizontally();
@@ -315,7 +353,7 @@ class FloatingImage {
             }
             ctx.restore();
             this.drawDirectionalImage(alpha, centerX, centerY);
-        } else if (this.style === 'pedestrian') {
+        } else if (this.style === 'pedestrian' || this.style === 'walk' || this.style === 'ufo' || this.style === 'sway' || this.style === 'spin') {
             this.drawDirectionalImage(alpha, centerX, centerY);
         } else {
             ctx.globalAlpha = alpha;

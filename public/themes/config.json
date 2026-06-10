@@ -8,7 +8,7 @@
           "id": "plant",
           "icon": "🌱",
           "label": "Pflanze",
-          "style": "plain",
+          "style": "sway",
           "xMinPct": 15,
           "xMaxPct": 85,
           "yMinPct": 55,
@@ -20,23 +20,23 @@
           "id": "alien",
           "icon": "👽",
           "label": "Lebewesen/Alien",
-          "style": "pedestrian",
+          "style": "walk",
           "xMinPct": 15,
           "xMaxPct": 85,
           "yMinPct": 55,
           "yMaxPct": 100,
-          "speedMin": 0.1,
-          "speedMax": 0.18
+          "speedMin": 0.13,
+          "speedMax": 0.22
         },
         {
           "id": "ufo",
           "icon": "🛸",
           "label": "Raumschiff/UFO",
-          "style": "airplane",
+          "style": "ufo",
           "yMinPct": 0,
           "yMaxPct": 100,
-          "speedMin": 0.5,
-          "speedMax": 0.6,
+          "speedMin": 0.75,
+          "speedMax": 0.95,
           "scalePct": 100
         },
         {
@@ -46,8 +46,8 @@
           "style": "rocket",
           "yMinPct": 0,
           "yMaxPct": 100,
-          "speedMin": 0.35,
-          "speedMax": 0.55,
+          "speedMin": 0.45,
+          "speedMax": 0.7,
           "scalePct": 67,
           "template": "/media/rakete.svg",
           "templateSize": "35% auto"
@@ -56,11 +56,12 @@
           "id": "celestial",
           "icon": "🪐",
           "label": "Himmelskörper",
-          "style": "plain",
+          "style": "spin",
           "yMinPct": 0,
           "yMaxPct": 50,
           "speedMin": 0.04,
-          "speedMax": 0.08
+          "speedMax": 0.08,
+          "scalePct": 50
         }
       ]
     },
