@@ -4,6 +4,7 @@
     "weltall": {
       "image": "weltall.png",
       "foregroundImage": "/media/steine_foreground_unfertig.png",
+      "transitionVideo": "/media/artmosphere%20weltraum%20transition1.mov",
       "categories": [
         {
           "id": "plant",

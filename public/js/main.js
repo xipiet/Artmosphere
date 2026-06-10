@@ -3,6 +3,7 @@ const canvas = document.getElementById('mainCanvas');
 const ctx = canvas.getContext('2d');
 const statusEl = document.getElementById('status');
 const foregroundOverlay = document.getElementById('foregroundOverlay');
+const themeTransitionVideo = document.getElementById('themeTransitionVideo');
 
 function applyForegroundImage(theme) {
     if (theme && theme.foregroundImage) {
@@ -12,6 +13,95 @@ function applyForegroundImage(theme) {
         foregroundOverlay.style.backgroundImage = 'none';
         foregroundOverlay.style.display = 'none';
     }
+}
+
+let themeTransitionHideTimeoutId = null;
+let themeTransitionCoverTimeoutId = null;
+let themeTransitionEndedHandler = null;
+let themeTransitionPlayingHandler = null;
+
+// Plays theme.transitionVideo (if any) as a fullscreen overlay. Once the video
+// is actually covering the screen (or immediately, if there's no video), calls
+// onCovered() so the underlying theme swap stays hidden behind the video.
+function playThemeTransition(theme, onCovered) {
+    // Cancel any in-flight transition first
+    if (themeTransitionHideTimeoutId !== null) {
+        clearTimeout(themeTransitionHideTimeoutId);
+        themeTransitionHideTimeoutId = null;
+    }
+    if (themeTransitionCoverTimeoutId !== null) {
+        clearTimeout(themeTransitionCoverTimeoutId);
+        themeTransitionCoverTimeoutId = null;
+    }
+    if (themeTransitionEndedHandler) {
+        themeTransitionVideo.removeEventListener('ended', themeTransitionEndedHandler);
+        themeTransitionEndedHandler = null;
+    }
+    if (themeTransitionPlayingHandler) {
+        themeTransitionVideo.removeEventListener('playing', themeTransitionPlayingHandler);
+        themeTransitionPlayingHandler = null;
+    }
+    themeTransitionVideo.pause();
+    themeTransitionVideo.style.display = 'none';
+
+    if (!theme || !theme.transitionVideo) {
+        if (onCovered) onCovered();
+        return;
+    }
+
+    let covered = false;
+    const cover = () => {
+        if (covered) return;
+        covered = true;
+        if (themeTransitionCoverTimeoutId !== null) {
+            clearTimeout(themeTransitionCoverTimeoutId);
+            themeTransitionCoverTimeoutId = null;
+        }
+        if (themeTransitionPlayingHandler) {
+            themeTransitionVideo.removeEventListener('playing', themeTransitionPlayingHandler);
+            themeTransitionPlayingHandler = null;
+        }
+        if (onCovered) onCovered();
+    };
+
+    const hide = () => {
+        themeTransitionVideo.style.display = 'none';
+        themeTransitionVideo.pause();
+        themeTransitionVideo.removeAttribute('src');
+        themeTransitionVideo.load();
+        if (themeTransitionHideTimeoutId !== null) {
+            clearTimeout(themeTransitionHideTimeoutId);
+            themeTransitionHideTimeoutId = null;
+        }
+        if (themeTransitionEndedHandler) {
+            themeTransitionVideo.removeEventListener('ended', themeTransitionEndedHandler);
+            themeTransitionEndedHandler = null;
+        }
+        cover(); // make sure the theme swap happens even if the video failed/ended early
+    };
+
+    themeTransitionEndedHandler = hide;
+    themeTransitionPlayingHandler = cover;
+    themeTransitionVideo.addEventListener('ended', themeTransitionEndedHandler);
+    themeTransitionVideo.addEventListener('playing', themeTransitionPlayingHandler);
+
+    themeTransitionVideo.src = theme.transitionVideo;
+    themeTransitionVideo.style.display = 'block';
+    themeTransitionVideo.currentTime = 0;
+
+    const playPromise = themeTransitionVideo.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((err) => {
+            console.warn('Theme transition video play() failed:', err);
+            hide();
+        });
+    }
+
+    // Fallback: swap the theme underneath even if 'playing' never fires quickly
+    themeTransitionCoverTimeoutId = setTimeout(cover, 1000);
+
+    // Safety: hide the overlay regardless after 5s
+    themeTransitionHideTimeoutId = setTimeout(hide, 5000);
 }
 
 const TARGET_AREA = 50000; // pixels² for normalization
@@ -31,6 +121,7 @@ let serverSettings = {
     backgroundOpacityMin: 0.1
 };
 let themeConfig = null;
+let activeThemeName = null;
 
 function resizeCanvas() {
 canvas.width = window.innerWidth;
@@ -475,6 +566,7 @@ socket.on("app:init", (d) => {
     const themeName = config.activeTheme;
     const theme = config.themes[themeName];
     themeConfig = theme;
+    activeThemeName = themeName;
     activeImages.length = 0; // Clear previous images
 
     statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
@@ -492,13 +584,26 @@ socket.on("app:init", (d) => {
 socket.on("config:changed", (config) => {
     const themeName = config.activeTheme;
     const theme = config.themes[themeName];
-    themeConfig = theme;
-    activeImages.length = 0; // Clear active images
+    const themeChanged = themeName !== activeThemeName;
 
-    statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
+    const applyTheme = () => {
+        themeConfig = theme;
+        activeThemeName = themeName;
+        activeImages.length = 0; // Clear active images
 
-    canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.image)}")`;
-    applyForegroundImage(theme);
+        statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
+
+        canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.image)}")`;
+        applyForegroundImage(theme);
+    };
+
+    if (themeChanged) {
+        // Defer the visible swap until the transition video is covering the screen
+        // (or apply immediately if this theme has no transition video).
+        playThemeTransition(theme, applyTheme);
+    } else {
+        applyTheme();
+    }
 });
 
 // CATEGORY RANGES CHANGED (admin tuned yMin/yMax/speedMin/speedMax for one
