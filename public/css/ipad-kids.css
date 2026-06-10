@@ -98,7 +98,6 @@
   position: fixed;
   z-index: 1004 !important;
   pointer-events: auto;
-  border-radius: 8px;
   box-sizing: border-box;
 }
 

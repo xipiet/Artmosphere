@@ -286,7 +286,10 @@ canvas#bgCanvas {
 .tool-btn,
 .history-btn,
 .direction-btn,
-#controls button {
+#controls button,
+#back.kids-tutorial-highlight,
+#clear.kids-tutorial-highlight,
+#send.kids-tutorial-highlight {
     min-height: 32px;
     padding: 6px 12px;
     border: 1px solid rgba(255,255,255,0.10);
@@ -313,7 +316,10 @@ canvas#bgCanvas {
 .tool-btn:hover,
 .history-btn:hover,
 .direction-btn:hover,
-#controls button:hover {
+#controls button:hover,
+#back.kids-tutorial-highlight:hover,
+#clear.kids-tutorial-highlight:hover,
+#send.kids-tutorial-highlight:hover {
     transform: translateY(-2px);
     background: rgba(170,0,255,0.25);
     box-shadow: 0 0 15px rgba(170,0,255,0.45);
@@ -322,7 +328,10 @@ canvas#bgCanvas {
 .tool-btn:active,
 .history-btn:active,
 .direction-btn:active,
-#controls button:active {
+#controls button:active,
+#back.kids-tutorial-highlight:active,
+#clear.kids-tutorial-highlight:active,
+#send.kids-tutorial-highlight:active {
     transform: translateY(1px) scale(0.98);
     box-shadow: 0 1px 0 rgba(0,0,0,0.16);
 }
@@ -433,7 +442,10 @@ canvas#bgCanvas {
     margin-bottom: 20px;
 }
 
-#controls button {
+#controls button,
+#back.kids-tutorial-highlight,
+#clear.kids-tutorial-highlight,
+#send.kids-tutorial-highlight {
     padding: 9px 14px;
     font-size: 16px;
     border-color: rgba(0,0,0,0.12);
