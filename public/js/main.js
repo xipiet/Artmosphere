@@ -62,14 +62,23 @@ class FloatingImage {
     get h() { return this.img.height * this.scaleFactor; }
 
     bounceHorizontally() {
-        const maxX = Math.max(0, canvas.width - this.w);
-        if (this.x <= 0) {
-            this.x = 0;
+        const { xMin, xMax } = this.xBounds();
+        if (this.x <= xMin) {
+            this.x = xMin;
             this.vx = Math.abs(this.vx);
-        } else if (this.x >= maxX) {
-            this.x = maxX;
+        } else if (this.x >= xMax) {
+            this.x = xMax;
             this.vx = -Math.abs(this.vx);
         }
+    }
+
+    xBounds() {
+        const cat = this.category;
+        const xMinPct = Number.isFinite(cat.xMinPct) ? cat.xMinPct : 0;
+        const xMaxPct = Number.isFinite(cat.xMaxPct) ? cat.xMaxPct : 100;
+        const xMin = canvas.width * (xMinPct / 100);
+        const xMax = Math.max(xMin, canvas.width * (xMaxPct / 100) - this.w);
+        return { xMin, xMax };
     }
 
     yBounds() {
@@ -85,8 +94,19 @@ class FloatingImage {
     }
 
     initializeMovement() {
+        if (this.style === 'rocket') {
+            this.x = Math.random() * Math.max(0, canvas.width - this.w);
+            this.y = Math.random() * canvas.height;
+            this.vx = 0;
+            this.vy = -this.randomSpeed();
+            this.waiting = false;
+            this.waitTimer = 0;
+            return;
+        }
+
         const { yMin, yMax } = this.yBounds();
-        this.x = Math.random() * Math.max(0, canvas.width - this.w);
+        const { xMin, xMax } = this.xBounds();
+        this.x = xMin + Math.random() * Math.max(0, xMax - xMin);
         this.baseY = yMin + Math.random() * Math.max(0, yMax - yMin);
         this.y = this.baseY;
         this.vx = this.randomSpeed() * (Math.random() < 0.5 ? 1 : -1);
@@ -119,6 +139,26 @@ class FloatingImage {
 
     update() {
         this.age += 1;
+
+        if (this.style === 'rocket') {
+            if (this.waiting) {
+                this.waitTimer -= 1;
+                if (this.waitTimer <= 0) {
+                    this.waiting = false;
+                    this.x = Math.random() * Math.max(0, canvas.width - this.w);
+                    this.y = canvas.height;
+                    this.vy = -this.randomSpeed();
+                }
+            } else {
+                this.y += this.vy;
+                if (this.y + this.h < 0) {
+                    this.waiting = true;
+                    this.waitTimer = Math.floor(Math.random() * 90) + 60; // ~1-2.5s @ 60fps
+                }
+            }
+            return this.updateFade();
+        }
+
         this.x += this.vx;
 
         if (this.style === 'pedestrian' || this.style === 'plain') {
@@ -169,6 +209,10 @@ class FloatingImage {
             }
         }
 
+        this.updateFade();
+    }
+
+    updateFade() {
         const shouldFadeAll = serverSettings.galleryMode === 'fade';
         if (shouldFadeAll || this.isFading) {
             const prevFade = this.fadeAlpha;
@@ -206,6 +250,8 @@ class FloatingImage {
     }
 
     draw() {
+        if (this.style === 'rocket' && this.waiting) return;
+
         const alpha = this.layerAlpha * this.fadeAlpha;
         const centerX = this.x + this.w / 2;
         const centerY = this.y + this.h / 2;
@@ -418,6 +464,7 @@ socket.on("category:rangesChanged", ({ themeName, categoryId, yMinPct, yMaxPct, 
     if (Number.isFinite(scalePct)) cat.scalePct = scalePct;
     activeImages.forEach(fi => {
         if (!fi.category || fi.category.id !== categoryId) return;
+        if (fi.style === 'rocket') return;
         const { yMin, yMax } = fi.yBounds();
         fi.baseY = Math.min(Math.max(fi.baseY, yMin), yMax);
         fi.y = fi.baseY;

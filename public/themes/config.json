@@ -1,6 +1,69 @@
 {
-  "activeTheme": "stadt",
+  "activeTheme": "weltall",
   "themes": {
+    "weltall": {
+      "image": "weltall.png",
+      "categories": [
+        {
+          "id": "plant",
+          "icon": "🌱",
+          "label": "Pflanze",
+          "style": "plain",
+          "xMinPct": 15,
+          "xMaxPct": 85,
+          "yMinPct": 55,
+          "yMaxPct": 100,
+          "speedMin": 0.05,
+          "speedMax": 0.1
+        },
+        {
+          "id": "alien",
+          "icon": "👽",
+          "label": "Lebewesen/Alien",
+          "style": "pedestrian",
+          "xMinPct": 15,
+          "xMaxPct": 85,
+          "yMinPct": 55,
+          "yMaxPct": 100,
+          "speedMin": 0.1,
+          "speedMax": 0.18
+        },
+        {
+          "id": "ufo",
+          "icon": "🛸",
+          "label": "Raumschiff/UFO",
+          "style": "airplane",
+          "yMinPct": 0,
+          "yMaxPct": 100,
+          "speedMin": 0.5,
+          "speedMax": 0.6,
+          "scalePct": 100
+        },
+        {
+          "id": "rocket",
+          "icon": "🚀",
+          "label": "Rakete",
+          "style": "rocket",
+          "yMinPct": 0,
+          "yMaxPct": 100,
+          "speedMin": 0.35,
+          "speedMax": 0.55,
+          "scalePct": 67,
+          "template": "/media/rakete.svg",
+          "templateSize": "35% auto"
+        },
+        {
+          "id": "celestial",
+          "icon": "🪐",
+          "label": "Himmelskörper",
+          "style": "plain",
+          "yMinPct": 0,
+          "yMaxPct": 50,
+          "speedMin": 0.04,
+          "speedMax": 0.08
+        }
+      ]
+    },
     "stadt": {
       "image": "stadt.png",
       "categories": [
