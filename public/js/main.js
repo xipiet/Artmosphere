@@ -20,10 +20,21 @@ let themeTransitionCoverTimeoutId = null;
 let themeTransitionEndedHandler = null;
 let themeTransitionPlayingHandler = null;
 
-// Plays theme.transitionVideo (if any) as a fullscreen overlay. Once the video
-// is actually covering the screen (or immediately, if there's no video), calls
-// onCovered() so the underlying theme swap stays hidden behind the video.
-function playThemeTransition(theme, onCovered) {
+// theme.transitionVideo can be a single path (used regardless of where we're
+// coming from) or an object keyed by the previous theme's name, with an
+// optional "default" fallback, e.g. { weltall: "...", unterwasser: "...", default: "..." }.
+function resolveTransitionVideo(theme, fromThemeName) {
+    const tv = theme && theme.transitionVideo;
+    if (!tv) return null;
+    if (typeof tv === 'string') return tv;
+    return tv[fromThemeName] || tv.default || null;
+}
+
+// Plays the transition video matching (theme, fromThemeName) - if any - as a
+// fullscreen overlay. Once the video is actually covering the screen (or
+// immediately, if there's no video), calls onCovered() so the underlying
+// theme swap stays hidden behind the video.
+function playThemeTransition(theme, fromThemeName, onCovered) {
     // Cancel any in-flight transition first
     if (themeTransitionHideTimeoutId !== null) {
         clearTimeout(themeTransitionHideTimeoutId);
@@ -44,7 +55,8 @@ function playThemeTransition(theme, onCovered) {
     themeTransitionVideo.pause();
     themeTransitionVideo.style.display = 'none';
 
-    if (!theme || !theme.transitionVideo) {
+    const videoSrc = resolveTransitionVideo(theme, fromThemeName);
+    if (!videoSrc) {
         if (onCovered) onCovered();
         return;
     }
@@ -85,7 +97,7 @@ function playThemeTransition(theme, onCovered) {
     themeTransitionVideo.addEventListener('ended', themeTransitionEndedHandler);
     themeTransitionVideo.addEventListener('playing', themeTransitionPlayingHandler);
 
-    themeTransitionVideo.src = theme.transitionVideo;
+    themeTransitionVideo.src = videoSrc;
     themeTransitionVideo.style.display = 'block';
     themeTransitionVideo.currentTime = 0;
 
@@ -146,6 +158,12 @@ class FloatingImage {
         this.rotation = 0;
         this.score = score;
 
+        // Defaults for optional per-style effects (overridden in initializeMovement)
+        this.pulseAmplitude = 0;
+        this.pulseSpeed = 0;
+        this.pulsePhase = 0;
+        this.bubbleTrail = false;
+
         this.initializeMovement();
         this.applyInitialDirection();
     }
@@ -160,8 +178,14 @@ class FloatingImage {
         return Number.isFinite(s) && s > 0 ? s / 100 : 1;
     }
 
-    get w() { return this.img.width * this.scaleFactor; }
-    get h() { return this.img.height * this.scaleFactor; }
+    // Subtle "breathing" pulse for organic-feeling creatures (1 when unused)
+    get pulseScale() {
+        if (!this.pulseAmplitude) return 1;
+        return 1 + Math.sin(this.age * this.pulseSpeed + this.pulsePhase) * this.pulseAmplitude;
+    }
+
+    get w() { return this.img.width * this.scaleFactor * this.pulseScale; }
+    get h() { return this.img.height * this.scaleFactor * this.pulseScale; }
 
     bounceHorizontally() {
         const { xMin, xMax } = this.xBounds();
@@ -210,7 +234,13 @@ class FloatingImage {
 
         const { yMin, yMax } = this.yBounds();
         const { xMin, xMax } = this.xBounds();
-        this.x = xMin + Math.random() * Math.max(0, xMax - xMin);
+        if (this.style === 'walk' || this.style === 'ufo') {
+            // Enter from the edge matching the chosen facing direction, so the
+            // very first pass already goes all the way across before bouncing.
+            this.x = this.facingDirection === 'left' ? xMax : xMin;
+        } else {
+            this.x = xMin + Math.random() * Math.max(0, xMax - xMin);
+        }
         this.baseY = yMin + Math.random() * Math.max(0, yMax - yMin);
         this.y = this.baseY;
         this.vx = this.randomSpeed() * (Math.random() < 0.5 ? 1 : -1);
@@ -238,11 +268,38 @@ class FloatingImage {
         } else if (this.style === 'walk') {
             this.vy = 0;
             this.walkPhase = Math.random() * Math.PI * 2;
-            this.walkSpeed = Math.random() * 0.02 + 0.05;
-            this.walkBobAmplitude = Math.random() * 2 + 2;
-            this.walkTiltAmplitude = Math.random() * 0.01 + 0.012;
+            const cat = this.category;
+            const walkSpeedMin = Number.isFinite(cat.walkSpeedMin) ? cat.walkSpeedMin : 0.05;
+            const walkSpeedMax = Number.isFinite(cat.walkSpeedMax) ? cat.walkSpeedMax : 0.07;
+            const walkBobMin = Number.isFinite(cat.walkBobAmplitudeMin) ? cat.walkBobAmplitudeMin : 2;
+            const walkBobMax = Number.isFinite(cat.walkBobAmplitudeMax) ? cat.walkBobAmplitudeMax : 4;
+            const walkTiltMin = Number.isFinite(cat.walkTiltAmplitudeMin) ? cat.walkTiltAmplitudeMin : 0.012;
+            const walkTiltMax = Number.isFinite(cat.walkTiltAmplitudeMax) ? cat.walkTiltAmplitudeMax : 0.022;
+            this.walkSpeed = walkSpeedMin + Math.random() * (walkSpeedMax - walkSpeedMin);
+            this.walkBobAmplitude = walkBobMin + Math.random() * (walkBobMax - walkBobMin);
+            this.walkTiltAmplitude = walkTiltMin + Math.random() * (walkTiltMax - walkTiltMin);
+
+            // Optional slow vertical drift, on top of the walk-bob, for a more
+            // organic swimming path. Off by default (0/0 -> no drift).
+            const driftAmpMin = Number.isFinite(cat.driftAmplitudeMin) ? cat.driftAmplitudeMin : 0;
+            const driftAmpMax = Number.isFinite(cat.driftAmplitudeMax) ? cat.driftAmplitudeMax : 0;
+            const driftSpeedMin = Number.isFinite(cat.driftSpeedMin) ? cat.driftSpeedMin : 0.004;
+            const driftSpeedMax = Number.isFinite(cat.driftSpeedMax) ? cat.driftSpeedMax : 0.009;
+            this.driftAmplitude = driftAmpMin + Math.random() * (driftAmpMax - driftAmpMin);
+            this.driftSpeed = driftSpeedMin + Math.random() * (driftSpeedMax - driftSpeedMin);
+            this.driftPhase = Math.random() * Math.PI * 2;
+
+            // Optional gentle "breathing" size pulse. Off by default (0/0 -> no pulse).
+            const pulseAmpMin = Number.isFinite(cat.pulseAmplitudeMin) ? cat.pulseAmplitudeMin : 0;
+            const pulseAmpMax = Number.isFinite(cat.pulseAmplitudeMax) ? cat.pulseAmplitudeMax : 0;
+            const pulseSpeedMin = Number.isFinite(cat.pulseSpeedMin) ? cat.pulseSpeedMin : 0.03;
+            const pulseSpeedMax = Number.isFinite(cat.pulseSpeedMax) ? cat.pulseSpeedMax : 0.06;
+            this.pulseAmplitude = pulseAmpMin + Math.random() * (pulseAmpMax - pulseAmpMin);
+            this.pulseSpeed = pulseSpeedMin + Math.random() * (pulseSpeedMax - pulseSpeedMin);
+            this.pulsePhase = Math.random() * Math.PI * 2;
         } else if (this.style === 'ufo') {
             this.vy = 0;
+            this.bubbleTrail = !!this.category.bubbleTrail;
         } else if (this.style === 'sway') {
             this.vx = 0;
             this.vy = 0;
@@ -302,7 +359,12 @@ class FloatingImage {
         } else if (this.style === 'walk') {
             this.bounceHorizontally();
             const walk = this.age * this.walkSpeed + this.walkPhase;
-            this.y = this.baseY - Math.abs(Math.sin(walk)) * this.walkBobAmplitude;
+            const drift = this.driftAmplitude
+                ? Math.sin(this.age * this.driftSpeed + this.driftPhase) * this.driftAmplitude
+                : 0;
+            const { yMin, yMax } = this.yBounds();
+            const y = this.baseY + drift - Math.abs(Math.sin(walk)) * this.walkBobAmplitude;
+            this.y = Math.min(Math.max(y, yMin), yMax);
             this.rotation = Math.sin(walk) * this.walkTiltAmplitude;
         } else if (this.style === 'ufo') {
             this.bounceHorizontally();
@@ -389,6 +451,29 @@ class FloatingImage {
         ctx.restore();
     }
 
+    // Small rising/fading bubbles trailing behind a vehicle (opposite of its
+    // movement direction), for a "powered, mechanical" underwater feel.
+    // Anchored to the vehicle's own center with a small fixed rise, so the
+    // trail stays attached to it regardless of its size (scalePct).
+    drawBubbleTrail(alpha, centerX, centerY) {
+        const direction = this.vx >= 0 ? -1 : 1;
+        const cycle = 90; // frames per bubble cycle
+        const riseDistance = 60; // px the bubbles travel before fading out
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        for (let i = 0; i < 4; i++) {
+            const t = ((this.age + i * (cycle / 4)) % cycle) / cycle; // 0..1
+            const bx = centerX + direction * this.w * 0.4 + Math.sin(this.age * 0.12 + i * 1.7) * 5;
+            const by = centerY + 10 - t * riseDistance;
+            const r = 1.5 + t * 2.5;
+            ctx.globalAlpha = alpha * 0.5 * (1 - t);
+            ctx.beginPath();
+            ctx.arc(bx, by, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
     draw() {
         if (this.style === 'rocket' && this.waiting) return;
 
@@ -454,6 +539,9 @@ class FloatingImage {
                 ctx.stroke();
             }
             ctx.restore();
+            this.drawDirectionalImage(alpha, centerX, centerY);
+        } else if (this.style === 'ufo' && this.bubbleTrail) {
+            this.drawBubbleTrail(alpha, centerX, centerY);
             this.drawDirectionalImage(alpha, centerX, centerY);
         } else if (this.style === 'pedestrian' || this.style === 'walk' || this.style === 'ufo' || this.style === 'sway' || this.style === 'spin') {
             this.drawDirectionalImage(alpha, centerX, centerY);
@@ -584,6 +672,7 @@ socket.on("app:init", (d) => {
 socket.on("config:changed", (config) => {
     const themeName = config.activeTheme;
     const theme = config.themes[themeName];
+    const previousThemeName = activeThemeName;
     const themeChanged = themeName !== activeThemeName;
 
     const applyTheme = () => {
@@ -600,7 +689,7 @@ socket.on("config:changed", (config) => {
     if (themeChanged) {
         // Defer the visible swap until the transition video is covering the screen
         // (or apply immediately if this theme has no transition video).
-        playThemeTransition(theme, applyTheme);
+        playThemeTransition(theme, previousThemeName, applyTheme);
     } else {
         applyTheme();
     }

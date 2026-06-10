@@ -1,5 +1,5 @@
 {
-  "activeTheme": "weltall",
+  "activeTheme": "unterwasser",
   "themes": {
     "weltall": {
       "image": "weltall.png",
@@ -69,6 +69,10 @@
     },
     "stadt": {
       "image": "stadt.png",
+      "transitionVideo": {
+        "weltall": "/media/artmosphere%20weltraum%20zu%20stadt%20transition1.mov",
+        "unterwasser": "/media/unterwasser%20zu%20stadt%20transition1.mov"
+      },
       "categories": [
         {
           "id": "pedestrian",
@@ -118,6 +122,79 @@
           "speedMax": 0.26,
           "template": "/media/drawing-template-watercraft.svg",
           "templateSize": "50% auto"
+        }
+      ]
+    },
+    "unterwasser": {
+      "image": "unterwasser.png",
+      "foregroundImage": "/media/steine_foreground_unterwasser.png",
+      "transitionVideo": "/media/stadt%20zu%20unterwasser%20transition1.mov",
+      "categories": [
+        {
+          "id": "plant",
+          "icon": "🌿",
+          "label": "Pflanze",
+          "style": "sway",
+          "yMinPct": 65,
+          "yMaxPct": 100,
+          "speedMin": 0.05,
+          "speedMax": 0.1
+        },
+        {
+          "id": "creature",
+          "icon": "🐟",
+          "label": "Lebewesen",
+          "style": "walk",
+          "yMinPct": 0,
+          "yMaxPct": 100,
+          "speedMin": 0.15,
+          "speedMax": 0.25,
+          "walkBobAmplitudeMin": 0.5,
+          "walkBobAmplitudeMax": 1,
+          "walkTiltAmplitudeMin": 0.003,
+          "walkTiltAmplitudeMax": 0.006,
+          "scalePct": 60,
+          "driftAmplitudeMin": 15,
+          "driftAmplitudeMax": 30,
+          "driftSpeedMin": 0.004,
+          "driftSpeedMax": 0.009,
+          "pulseAmplitudeMin": 0.02,
+          "pulseAmplitudeMax": 0.04,
+          "pulseSpeedMin": 0.03,
+          "pulseSpeedMax": 0.06
+        },
+        {
+          "id": "vehicle",
+          "icon": "🤿",
+          "label": "Fahrzeug",
+          "style": "ufo",
+          "yMinPct": 0,
+          "yMaxPct": 85,
+          "speedMin": 0.8,
+          "speedMax": 1,
+          "scalePct": 110,
+          "bubbleTrail": true
+        },
+        {
+          "id": "fantasy",
+          "icon": "🧜",
+          "label": "Fantasiewesen",
+          "style": "ufo",
+          "yMinPct": 0,
+          "yMaxPct": 100,
+          "speedMin": 0.12,
+          "speedMax": 0.2
+        },
+        {
+          "id": "treasure",
+          "icon": "🏺",
+          "label": "Schätze & Artefakte",
+          "style": "spin",
+          "yMinPct": 85,
+          "yMaxPct": 100,
+          "speedMin": 0.02,
+          "speedMax": 0.05,
+          "scalePct": 60
         }
       ]
     }
