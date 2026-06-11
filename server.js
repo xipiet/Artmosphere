@@ -534,7 +534,7 @@ io.on("connection", (socket) => {
     if (callback) callback({ ok: true });
   });
 
-  // Admin tunes per-category ranges (yMin/yMax/speedMin/speedMax) without
+  // Admin tunes per-category ranges without
   // wiping the wall: mutate in place, persist, broadcast targeted event.
   socket.on("admin:updateCategoryRanges", (payload) => {
     if (!payload || typeof payload !== "object") return;
@@ -544,6 +544,9 @@ io.on("connection", (socket) => {
     const cat = theme.categories.find(c => c.id === categoryId);
     if (!cat) return;
     const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+    const xMin = clamp(Number(payload.xMinPct), 0, 100);
+    const xMaxRaw = clamp(Number(payload.xMaxPct), 0, 100);
+    const xMax = Math.max(xMin, xMaxRaw);
     const yMin = clamp(Number(payload.yMinPct), 0, 100);
     const yMaxRaw = clamp(Number(payload.yMaxPct), 0, 100);
     const yMax = Math.max(yMin, yMaxRaw);
@@ -551,7 +554,9 @@ io.on("connection", (socket) => {
     const sMax = Math.max(sMin, Number(payload.speedMax));
     const scaleRaw = Number(payload.scalePct);
     const scale = Number.isFinite(scaleRaw) ? clamp(scaleRaw, 10, 400) : (Number.isFinite(cat.scalePct) ? cat.scalePct : 100);
-    if (![yMin, yMax, sMin, sMax].every(Number.isFinite)) return;
+    if (![xMin, xMax, yMin, yMax, sMin, sMax].every(Number.isFinite)) return;
+    cat.xMinPct = xMin;
+    cat.xMaxPct = xMax;
     cat.yMinPct = yMin;
     cat.yMaxPct = yMax;
     cat.speedMin = sMin;
@@ -560,6 +565,7 @@ io.on("connection", (socket) => {
     saveConfig();
     io.emit("category:rangesChanged", {
       themeName, categoryId,
+      xMinPct: xMin, xMaxPct: xMax,
       yMinPct: yMin, yMaxPct: yMax, speedMin: sMin, speedMax: sMax, scalePct: scale
     });
   });

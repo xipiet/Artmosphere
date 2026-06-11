@@ -20,6 +20,45 @@ let serverSettings = {
     backgroundOpacityMin: 0.1
 };
 let themeConfig = null;
+let backgroundImageSize = null;
+
+function setThemeBackground(theme) {
+    const bgUrl = `/theme-image/${encodeURIComponent(theme.image)}`;
+    canvas.style.backgroundImage = `url("${bgUrl}")`;
+    backgroundImageSize = null;
+
+    const bgImg = new Image();
+    bgImg.onload = () => {
+        backgroundImageSize = {
+            width: bgImg.naturalWidth,
+            height: bgImg.naturalHeight
+        };
+    };
+    bgImg.onerror = () => {
+        console.error('Failed to load theme background:', theme.image);
+    };
+    bgImg.src = bgUrl;
+}
+
+function backgroundCoverRect() {
+    if (!backgroundImageSize || !canvas.width || !canvas.height) {
+        return { x: 0, y: 0, width: canvas.width, height: canvas.height };
+    }
+
+    const scale = Math.max(
+        canvas.width / backgroundImageSize.width,
+        canvas.height / backgroundImageSize.height
+    );
+    const width = backgroundImageSize.width * scale;
+    const height = backgroundImageSize.height * scale;
+
+    return {
+        x: (canvas.width - width) / 2,
+        y: (canvas.height - height) / 2,
+        width,
+        height
+    };
+}
 
 function resizeCanvas() {
 canvas.width = window.innerWidth;
@@ -43,14 +82,96 @@ class FloatingImage {
         this.age = Math.random() * 1000;
         this.rotation = 0;
         this.score = score;
+        this.visibleBottomRatio = this.detectVisibleBottomRatio();
 
         this.initializeMovement();
         this.applyInitialDirection();
     }
 
+    detectVisibleBottomRatio() {
+        if (!this.img || !this.img.width || !this.img.height) return null;
+
+        try {
+            const analysisCanvas = document.createElement('canvas');
+            analysisCanvas.width = this.img.width;
+            analysisCanvas.height = this.img.height;
+            const analysisCtx = analysisCanvas.getContext('2d', { willReadFrequently: true });
+            analysisCtx.drawImage(this.img, 0, 0);
+            const pixels = analysisCtx.getImageData(0, 0, analysisCanvas.width, analysisCanvas.height).data;
+            const width = analysisCanvas.width;
+            const height = analysisCanvas.height;
+            const visited = new Uint8Array(width * height);
+            const queue = new Int32Array(width * height);
+            const components = [];
+
+            for (let start = 0; start < width * height; start += 1) {
+                if (visited[start] || pixels[start * 4 + 3] < 24) continue;
+
+                let head = 0;
+                let tail = 0;
+                let area = 0;
+                let bottomY = 0;
+                const columnBottoms = new Map();
+                queue[tail++] = start;
+                visited[start] = 1;
+
+                while (head < tail) {
+                    const pixel = queue[head++];
+                    const x = pixel % width;
+                    const y = Math.floor(pixel / width);
+                    area += 1;
+                    bottomY = Math.max(bottomY, y);
+                    columnBottoms.set(x, Math.max(columnBottoms.get(x) ?? -1, y));
+
+                    const neighbors = [
+                        x > 0 ? pixel - 1 : -1,
+                        x + 1 < width ? pixel + 1 : -1,
+                        y > 0 ? pixel - width : -1,
+                        y + 1 < height ? pixel + width : -1
+                    ];
+                    neighbors.forEach(neighbor => {
+                        if (neighbor < 0 || visited[neighbor] || pixels[neighbor * 4 + 3] < 24) return;
+                        visited[neighbor] = 1;
+                        queue[tail++] = neighbor;
+                    });
+                }
+
+                components.push({ area, bottomY, columnBottoms });
+            }
+
+            if (components.length === 0) return null;
+            const largestArea = Math.max(...components.map(component => component.area));
+            const minSignificantArea = Math.max(3, largestArea * 0.01);
+            const significantComponents = components.filter(component => component.area >= minSignificantArea);
+            const bottomByColumn = new Map();
+
+            significantComponents.forEach(component => {
+                component.columnBottoms.forEach((bottomY, x) => {
+                    bottomByColumn.set(x, Math.max(bottomByColumn.get(x) ?? -1, bottomY));
+                });
+            });
+
+            const columnBottoms = [...bottomByColumn.values()].sort((a, b) => a - b);
+            if (columnBottoms.length === 0) return null;
+            const supportIndex = Math.min(
+                columnBottoms.length - 1,
+                Math.floor((columnBottoms.length - 1) * 0.97)
+            );
+            const visibleBottom = columnBottoms[supportIndex];
+            return (visibleBottom + 1) / height;
+        } catch (error) {
+            console.warn('Could not detect visible image bounds:', error);
+        }
+
+        return null;
+    }
+
     applyInitialDirection() {
         const direction = this.facingDirection === 'left' ? -1 : 1;
         this.vx = Math.abs(this.vx) * direction;
+        if (this.hasMovementPath()) {
+            this.pathDirection = direction;
+        }
     }
 
     get scaleFactor() {
@@ -61,10 +182,99 @@ class FloatingImage {
     get w() { return this.img.width * this.scaleFactor; }
     get h() { return this.img.height * this.scaleFactor; }
 
+    get visibleBottomOffset() {
+        return Number.isFinite(this.visibleBottomRatio)
+            ? this.h * (1 - this.visibleBottomRatio)
+            : 0;
+    }
+
+    hasMovementPath() {
+        return Array.isArray(this.category && this.category.pathPoints)
+            && this.category.pathPoints.length >= 2;
+    }
+
+    movementPath() {
+        if (!this.hasMovementPath()) return null;
+
+        const bg = backgroundCoverRect();
+        const points = this.category.pathPoints.map(point => ({
+            x: bg.x + bg.width * (Number(point.xPct) / 100),
+            y: bg.y + bg.height * (Number(point.yPct) / 100)
+        }));
+        const segments = [];
+        let totalLength = 0;
+
+        for (let i = 0; i < points.length - 1; i += 1) {
+            const from = points[i];
+            const to = points[i + 1];
+            const length = Math.hypot(to.x - from.x, to.y - from.y);
+            if (length <= 0) continue;
+            segments.push({ from, to, length, start: totalLength });
+            totalLength += length;
+        }
+
+        return totalLength > 0 ? { segments, totalLength } : null;
+    }
+
+    positionOnMovementPath() {
+        const path = this.movementPath();
+        if (!path) return;
+
+        const distance = this.pathProgress * path.totalLength;
+        const segment = path.segments.find(item => distance <= item.start + item.length)
+            || path.segments[path.segments.length - 1];
+        const progress = Math.min(1, Math.max(0, (distance - segment.start) / segment.length));
+        const centerX = segment.from.x + (segment.to.x - segment.from.x) * progress;
+        const groundY = segment.from.y + (segment.to.y - segment.from.y) * progress;
+        const anchorRaw = Number(this.category.pathAnchorYPct);
+        const fallbackAnchorY = Number.isFinite(anchorRaw) ? Math.min(100, Math.max(0, anchorRaw)) / 100 : 1;
+        const anchorY = Number.isFinite(this.visibleBottomRatio) ? this.visibleBottomRatio : fallbackAnchorY;
+        const horizontalDirection = Math.sign(segment.to.x - segment.from.x) * this.pathDirection;
+
+        this.x = centerX - this.w / 2;
+        this.y = groundY - this.h * anchorY;
+        this.baseY = this.y;
+        if (horizontalDirection !== 0) {
+            this.vx = Math.abs(this.vx) * horizontalDirection;
+        }
+    }
+
+    updateMovementPath() {
+        const path = this.movementPath();
+        if (!path) return;
+
+        this.pathProgress += (Math.abs(this.vx) / path.totalLength) * this.pathDirection;
+        if (this.pathProgress <= 0) {
+            this.pathProgress = 0;
+            this.pathDirection = 1;
+        } else if (this.pathProgress >= 1) {
+            this.pathProgress = 1;
+            this.pathDirection = -1;
+        }
+        this.positionOnMovementPath();
+    }
+
+    xBounds() {
+        const cat = this.category || {};
+        const xMinPct = Number.isFinite(Number(cat.xMinPct)) ? Number(cat.xMinPct) : 0;
+        const xMaxPct = Number.isFinite(Number(cat.xMaxPct)) ? Number(cat.xMaxPct) : 100;
+        const bg = backgroundCoverRect();
+        const zoneLeft = bg.x + bg.width * (Math.min(xMinPct, xMaxPct) / 100);
+        const zoneRight = bg.x + bg.width * (Math.max(xMinPct, xMaxPct) / 100);
+        const minX = Math.max(0, zoneLeft);
+        const maxX = Math.min(canvas.width - this.w, zoneRight - this.w);
+
+        if (maxX < minX) {
+            const centeredX = Math.max(0, Math.min(canvas.width - this.w, (zoneLeft + zoneRight - this.w) / 2));
+            return { minX: centeredX, maxX: centeredX };
+        }
+        return { minX, maxX };
+    }
+
     bounceHorizontally() {
-        const maxX = Math.max(0, canvas.width - this.w);
-        if (this.x <= 0) {
-            this.x = 0;
+        const { minX, maxX } = this.xBounds();
+        if (this.x <= minX) {
+            this.x = minX;
             this.vx = Math.abs(this.vx);
         } else if (this.x >= maxX) {
             this.x = maxX;
@@ -86,12 +296,17 @@ class FloatingImage {
 
     initializeMovement() {
         const { yMin, yMax } = this.yBounds();
-        this.x = Math.random() * Math.max(0, canvas.width - this.w);
+        const { minX, maxX } = this.xBounds();
+        this.x = minX + Math.random() * Math.max(0, maxX - minX);
         this.baseY = yMin + Math.random() * Math.max(0, yMax - yMin);
         this.y = this.baseY;
         this.vx = this.randomSpeed() * (Math.random() < 0.5 ? 1 : -1);
 
-        if (this.style === 'car') {
+        if (this.style === 'pedestrian' && this.hasMovementPath()) {
+            this.pathProgress = Math.random();
+            this.pathDirection = Math.random() < 0.5 ? -1 : 1;
+            this.positionOnMovementPath();
+        } else if (this.style === 'car') {
             this.vy = (Math.random() * 0.012 + 0.006) * (Math.random() < 0.5 ? 1 : -1);
             this.drivePhase = Math.random() * Math.PI * 2;
             this.driveSpeed = Math.random() * 0.025 + 0.025;
@@ -119,15 +334,18 @@ class FloatingImage {
 
     update() {
         this.age += 1;
-        this.x += this.vx;
 
-        if (this.style === 'pedestrian' || this.style === 'plain') {
+        if (this.style === 'pedestrian' && this.hasMovementPath()) {
+            this.updateMovementPath();
+        } else if (this.style === 'pedestrian' || this.style === 'plain') {
+            this.x += this.vx;
             this.y += this.vy;
             this.bounceHorizontally();
             const { yMin, yMax } = this.yBounds();
             if (this.y < yMin) this.y = yMin;
             if (this.y > yMax) this.y = yMax;
         } else {
+            this.x += this.vx;
             // Animated styles share a common base-band drift + sinusoidal motion
             this.bounceHorizontally();
             const { yMin, yMax } = this.yBounds();
@@ -147,7 +365,7 @@ class FloatingImage {
                 const speedPulse = 1 + Math.sin(road * 1.4) * 0.09;
                 this.x += this.vx * (speedPulse - 1);
                 this.bounceHorizontally();
-                this.y = this.baseY + laneDrift + bump;
+                this.y = this.baseY + laneDrift + bump + this.visibleBottomOffset;
                 this.rotation = Math.sin(road * 2.4) * this.rollAmplitude;
             } else if (this.style === 'airplane') {
                 const flight = this.age * this.flightSpeed + this.flightPhase;
@@ -205,6 +423,36 @@ class FloatingImage {
         ctx.restore();
     }
 
+    drawWalkingPedestrian(alpha, centerX, centerY) {
+        const drawnFacingScale = this.facingDirection === 'left' ? -1 : 1;
+        const movementFacingScale = this.vx < 0 ? -1 : 1;
+        const facingScale = drawnFacingScale * movementFacingScale;
+        const walkPhase = this.age * 0.11;
+        const stride = Math.sin(walkPhase);
+        const step = Math.sin(walkPhase * 2);
+        const sway = stride * 0.018;
+        const bob = -Math.abs(step) * Math.min(1.8, this.h * 0.008);
+        const stretchX = 1 + Math.abs(step) * 0.012;
+        const stretchY = 1 - Math.abs(step) * 0.008;
+        const groundOffset = this.h * (1 - stretchY) / 2;
+
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(centerX, centerY + bob + groundOffset);
+        ctx.scale(facingScale, 1);
+        ctx.rotate(sway);
+        ctx.scale(stretchX, stretchY);
+
+        if (this.currentLayer === 'foreground' && (this.score || 0) > 0) {
+            const tier = Math.min(this.score, 6);
+            ctx.shadowBlur = tier * 6;
+            ctx.shadowColor = `rgba(255, 215, 130, ${Math.min(0.5 + tier * 0.05, 0.85)})`;
+        }
+
+        ctx.drawImage(this.img, -this.w / 2, -this.h / 2, this.w, this.h);
+        ctx.restore();
+    }
+
     draw() {
         const alpha = this.layerAlpha * this.fadeAlpha;
         const centerX = this.x + this.w / 2;
@@ -239,7 +487,7 @@ class FloatingImage {
             ctx.beginPath();
             ctx.ellipse(
                 centerX,
-                this.y + this.h * 0.92,
+                this.y + this.h * (Number.isFinite(this.visibleBottomRatio) ? this.visibleBottomRatio : 0.92),
                 this.w * 0.34,
                 Math.max(5, this.h * 0.06),
                 0, 0, Math.PI * 2
@@ -270,7 +518,7 @@ class FloatingImage {
             ctx.restore();
             this.drawDirectionalImage(alpha, centerX, centerY);
         } else if (this.style === 'pedestrian') {
-            this.drawDirectionalImage(alpha, centerX, centerY);
+            this.drawWalkingPedestrian(alpha, centerX, centerY);
         } else {
             ctx.globalAlpha = alpha;
             ctx.drawImage(this.img, this.x, this.y, this.w, this.h);
@@ -385,8 +633,7 @@ socket.on("app:init", (d) => {
     statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
 
     // Hintergrund laden
-    const bgUrl = `/theme-image/${encodeURIComponent(theme.image)}`;
-    canvas.style.backgroundImage = `url("${bgUrl}")`;
+    setThemeBackground(theme);
 
     // Request all current images from server
     socket.emit("main:requestAllImages");
@@ -401,16 +648,18 @@ socket.on("config:changed", (config) => {
 
     statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
 
-    canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.image)}")`;
+    setThemeBackground(theme);
 });
 
 // CATEGORY RANGES CHANGED (admin tuned yMin/yMax/speedMin/speedMax for one
 // category) — apply live without wiping the wall: pull active paintings of
 // that category into the new band and rescale their horizontal speed.
-socket.on("category:rangesChanged", ({ themeName, categoryId, yMinPct, yMaxPct, speedMin, speedMax, scalePct }) => {
+socket.on("category:rangesChanged", ({ themeName, categoryId, xMinPct, xMaxPct, yMinPct, yMaxPct, speedMin, speedMax, scalePct }) => {
     if (!themeConfig || !themeConfig.categories) return;
     const cat = themeConfig.categories.find(c => c.id === categoryId);
     if (!cat) return;
+    cat.xMinPct = xMinPct;
+    cat.xMaxPct = xMaxPct;
     cat.yMinPct = yMinPct;
     cat.yMaxPct = yMaxPct;
     cat.speedMin = speedMin;
@@ -419,6 +668,8 @@ socket.on("category:rangesChanged", ({ themeName, categoryId, yMinPct, yMaxPct, 
     activeImages.forEach(fi => {
         if (!fi.category || fi.category.id !== categoryId) return;
         const { yMin, yMax } = fi.yBounds();
+        const { minX, maxX } = fi.xBounds();
+        fi.x = Math.min(Math.max(fi.x, minX), maxX);
         fi.baseY = Math.min(Math.max(fi.baseY, yMin), yMax);
         fi.y = fi.baseY;
         const sign = Math.sign(fi.vx) || (Math.random() < 0.5 ? -1 : 1);
@@ -476,8 +727,7 @@ socket.on("newImage", ({ id, dataUrl, movementType, facingDirection, score }) =>
             const y = (MAX_PAINTING_SIZE - newHeight) / 2;
             tempCtx.drawImage(img, x, y, newWidth, newHeight);
             
-            finalImg = new Image();
-            finalImg.src = tempCanvas.toDataURL();
+            finalImg = tempCanvas;
         }
         
         activeImages.push(new FloatingImage(id, finalImg, category, facingDirection, score));
@@ -555,8 +805,7 @@ socket.on("main:allImages", ({ images }) => {
                 const y = (MAX_PAINTING_SIZE - newHeight) / 2;
                 tempCtx.drawImage(img, x, y, newWidth, newHeight);
                 
-                finalImg = new Image();
-                finalImg.src = tempCanvas.toDataURL();
+                finalImg = tempCanvas;
             }
             
             activeImages.push(new FloatingImage(imageData.id, finalImg, category, imageData.facingDirection, imageData.score));

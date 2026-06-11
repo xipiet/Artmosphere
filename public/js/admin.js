@@ -93,10 +93,12 @@ socket.on('config:changed', (conf) => {
     showStatus('Theme config updated');
 });
 
-socket.on('category:rangesChanged', ({ themeName, categoryId, yMinPct, yMaxPct, speedMin, speedMax, scalePct }) => {
+socket.on('category:rangesChanged', ({ themeName, categoryId, xMinPct, xMaxPct, yMinPct, yMaxPct, speedMin, speedMax, scalePct }) => {
     if (!currentConfig || !currentConfig.themes || !currentConfig.themes[themeName]) return;
     const cat = currentConfig.themes[themeName].categories.find(c => c.id === categoryId);
     if (!cat) return;
+    cat.xMinPct = xMinPct;
+    cat.xMaxPct = xMaxPct;
     cat.yMinPct = yMinPct;
     cat.yMaxPct = yMaxPct;
     cat.speedMin = speedMin;
@@ -193,6 +195,12 @@ function renderCategoryRanges() {
     categoryRangesList.innerHTML = theme.categories.map(cat => `
         <div class="category-row" data-category-id="${cat.id}" style="display:flex; flex-wrap:wrap; gap:15px; align-items:center; padding:10px 0; border-bottom:1px solid #eee;">
             <div style="min-width:170px;"><span style="font-size:1.4em;">${cat.icon || ''}</span> <strong>${cat.label || cat.id}</strong> <small style="color:#888;">(${cat.id})</small></div>
+            <label style="font-size:0.9em;">xMin %
+                <input type="number" min="0" max="100" step="1" data-field="xMinPct" value="${Number.isFinite(Number(cat.xMinPct)) ? cat.xMinPct : 0}" style="width:70px; margin-left:5px;">
+            </label>
+            <label style="font-size:0.9em;">xMax %
+                <input type="number" min="0" max="100" step="1" data-field="xMaxPct" value="${Number.isFinite(Number(cat.xMaxPct)) ? cat.xMaxPct : 100}" style="width:70px; margin-left:5px;">
+            </label>
             <label style="font-size:0.9em;">yMin %
                 <input type="number" min="0" max="100" step="1" data-field="yMinPct" value="${cat.yMinPct}" style="width:70px; margin-left:5px;">
             </label>
@@ -223,7 +231,7 @@ if (categoryRangesList) {
         const theme = currentConfig.themes && currentConfig.themes[themeName];
         const cat = theme && theme.categories.find(c => c.id === categoryId);
         if (!cat) return;
-        const fields = ['yMinPct', 'yMaxPct', 'speedMin', 'speedMax', 'scalePct'];
+        const fields = ['xMinPct', 'xMaxPct', 'yMinPct', 'yMaxPct', 'speedMin', 'speedMax', 'scalePct'];
         const payload = { themeName, categoryId };
         fields.forEach(f => {
             const el = row.querySelector(`input[data-field="${f}"]`);
