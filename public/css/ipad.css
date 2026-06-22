@@ -621,7 +621,7 @@ canvas#bgCanvas {
 }
 
 #toggle-button-1 .toggle-knobs:before {
-  content: "Classic";
+  content: "Klassisch";
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
@@ -638,8 +638,8 @@ canvas#bgCanvas {
 }
 
 #toggle-button-1 .toggle-checkbox:checked + .toggle-knobs:before {
-  content: "Kids Mode";
-  left: 42px;
+  content: "Kindermodus";
+  left: 24px;
   background-color: #f5a40e;
 }
 

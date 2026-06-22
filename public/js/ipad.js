@@ -384,7 +384,7 @@ document.getElementById("send").addEventListener("click", () => {
         { dataUrl, movementType: selectedCategory, facingDirection },
         (err, response) => {
             sendBtn.disabled = false;
-            sendBtn.textContent = "Send";
+            sendBtn.textContent = "Senden";
 
             if (err) {
                 alert("Verbindungsfehler beim Senden — bitte nochmal versuchen.");
