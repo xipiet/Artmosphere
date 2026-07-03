@@ -213,23 +213,34 @@ app.get("/scoreboard", (req, res) => {
 // the registry is RAM-only.
 app.get("/api/scoreboard", (req, res) => {
   const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 10));
-  const entries = Array.from(scoreboardRegistry.values()).map(img => ({
-    name: img.name || 'Anonym',
-    score: Number(img.score) || 0,
-    votes: img.votes || { veryGood: 0, good: 0, bad: 0, veryBad: 0 },
-    timestamp: img.timestamp || null,
-    // The drawing lives in memory as a dataUrl — usable directly as <img src>.
-    // Unsaved works have no file on disk, so this is the only thumbnail source
-    // (and it stays correct after the image fades off the wall).
-    thumb: img.dataUrl
-  }));
+  const entries = Array.from(scoreboardRegistry.values())
+    // Only works the Kritiker has actually rated belong on the board. Filtering
+    // by score would be wrong: a fresh work and a work rated to a net-zero
+    // balance (e.g. 1× sehr gut + 1× sehr schlecht) both have score 0. So we
+    // key off the vote COUNT — a work counts as rated once any button was hit.
+    .filter(img => {
+      const v = img.votes;
+      return v && ((v.veryGood || 0) + (v.good || 0) + (v.bad || 0) + (v.veryBad || 0)) > 0;
+    })
+    .map(img => ({
+      name: img.name || 'Anonym',
+      score: Number(img.score) || 0,
+      votes: img.votes || { veryGood: 0, good: 0, bad: 0, veryBad: 0 },
+      timestamp: img.timestamp || null,
+      // The drawing lives in memory as a dataUrl — usable directly as <img src>.
+      // Unsaved works have no file on disk, so this is the only thumbnail source
+      // (and it stays correct after the image fades off the wall).
+      thumb: img.dataUrl
+    }));
 
   const byScoreDesc = entries.slice().sort((a, b) => b.score - a.score || (b.timestamp || 0) - (a.timestamp || 0));
   const byScoreAsc  = entries.slice().sort((a, b) => a.score - b.score || (b.timestamp || 0) - (a.timestamp || 0));
   res.json({
     top: byScoreDesc.slice(0, limit),
     bottom: byScoreAsc.slice(0, limit),
-    total: entries.length
+    // "Werke insgesamt" counts every created work, not just the rated subset
+    // shown in the lists — the registry size, taken before the rated-filter.
+    total: scoreboardRegistry.size
   });
 });
 
