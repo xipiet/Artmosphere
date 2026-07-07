@@ -613,6 +613,61 @@ class FloatingImage {
 
 const activeImages = [];
 
+// -------------------- AMBIENT BUBBLES (unterwasser) --------------------
+const ambientBubbles = [];
+let bubbleBurstCountdown = 180;
+
+function spawnBubbleBurst() {
+    const count = 10 + Math.floor(Math.random() * 15);
+    for (let i = 0; i < count; i++) {
+        ambientBubbles.push({
+            x: Math.random() * canvas.width,
+            y: canvas.height + Math.random() * 40,
+            r: 3 + Math.random() * 14,
+            speed: 0.7 + Math.random() * 2.0,
+            drift: (Math.random() - 0.5) * 0.9,
+            alpha: 0.25 + Math.random() * 0.35,
+            wobblePhase: Math.random() * Math.PI * 2,
+            wobbleSpeed: 0.025 + Math.random() * 0.035,
+        });
+    }
+    bubbleBurstCountdown = 180 + Math.floor(Math.random() * 360);
+}
+
+function updateAndDrawAmbientBubbles() {
+    if (activeThemeName !== 'unterwasser') {
+        ambientBubbles.length = 0;
+        return;
+    }
+
+    bubbleBurstCountdown--;
+    if (bubbleBurstCountdown <= 0) spawnBubbleBurst();
+
+    for (let i = ambientBubbles.length - 1; i >= 0; i--) {
+        const b = ambientBubbles[i];
+        b.y -= b.speed;
+        b.x += Math.sin(b.wobblePhase) * b.drift;
+        b.wobblePhase += b.wobbleSpeed;
+
+        if (b.y + b.r < 0) { ambientBubbles.splice(i, 1); continue; }
+
+        const fadeTop = canvas.height * 0.12;
+        const alpha = Math.max(0, b.y < fadeTop ? b.alpha * (b.y / fadeTop) : b.alpha);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = 'rgba(180, 220, 255, 0.85)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.globalAlpha = alpha * 0.18;
+        ctx.fillStyle = 'rgba(220, 240, 255, 1)';
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
 // -------------------- LAYER DISTRIBUTION --------------------
 function redistributeLayers() {
     const totalImages = activeImages.length;
@@ -682,6 +737,8 @@ function animate() {
             }
         });
     });
+
+    updateAndDrawAmbientBubbles();
 
     requestAnimationFrame(animate);
 }
