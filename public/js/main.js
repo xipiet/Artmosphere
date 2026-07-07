@@ -232,6 +232,34 @@ class FloatingImage {
             return;
         }
 
+        if (this.style === 'orbit') {
+            const cat = this.category;
+            // orbitT: 0 = sprite center at left edge, 1 = sprite center at right edge.
+            // x  = orbitT * canvas.width  (linear, guaranteed full-width span)
+            // y  = entryY − amplitude × sin(π × t)  (sine arc, peaks at t=0.5)
+            const entryYPct = Number.isFinite(cat.orbitEntryYPct) ? cat.orbitEntryYPct : 72;
+            const peakMinPct = Number.isFinite(cat.orbitPeakYPctMin) ? cat.orbitPeakYPctMin : 15;
+            const peakMaxPct = Number.isFinite(cat.orbitPeakYPctMax) ? cat.orbitPeakYPctMax : 28;
+            const peakYPct = peakMinPct + Math.random() * Math.max(0, peakMaxPct - peakMinPct);
+            this.orbitEntryY = entryYPct / 100 * canvas.height;
+            this.orbitPeakY  = peakYPct  / 100 * canvas.height;
+            this.orbitDirection = Math.random() < 0.5 ? 1 : -1; // +1 L→R, −1 R→L
+            const sMin = Number.isFinite(cat.speedMin) ? cat.speedMin : 0.003;
+            const sMax = Number.isFinite(cat.speedMax) ? cat.speedMax : 0.007;
+            this.orbitSpeed = sMin + Math.random() * Math.max(0, sMax - sMin);
+            this.orbitWaiting = false;
+            this.orbitWaitTimer = 0;
+            // ot: how far past the screen edge (in t-units) the sprite starts
+            const ot = (this.w / 2 + 20) / canvas.width;
+            this.orbitT = this.orbitDirection > 0 ? -ot : 1 + ot;
+            this.vx = canvas.width * this.orbitSpeed * this.orbitDirection;
+            const rawSt = this.orbitDirection > 0 ? this.orbitT : 1 - this.orbitT;
+            const st = (rawSt + ot) / (1 + 2 * ot);
+            this.x = this.orbitT * canvas.width - this.w / 2;
+            this.y = this.orbitEntryY - (this.orbitEntryY - this.orbitPeakY) * Math.sin(Math.PI * st) - this.h / 2;
+            return;
+        }
+
         const { yMin, yMax } = this.yBounds();
         const { xMin, xMax } = this.xBounds();
         if (this.style === 'walk' || this.style === 'ufo') {
@@ -345,6 +373,36 @@ class FloatingImage {
 
         if (this.style === 'spin') {
             this.rotation += this.spinSpeed;
+            return this.updateFade();
+        }
+
+        if (this.style === 'orbit') {
+            if (this.orbitWaiting) {
+                this.orbitWaitTimer -= 1;
+                if (this.orbitWaitTimer <= 0) {
+                    this.orbitWaiting = false;
+                    const ot = (this.w / 2 + 20) / canvas.width;
+                    this.orbitT = this.orbitDirection > 0 ? -ot : 1 + ot;
+                }
+            } else {
+                this.orbitT += this.orbitSpeed * this.orbitDirection;
+                this.vx = canvas.width * this.orbitSpeed * this.orbitDirection;
+                const ot = (this.w / 2 + 20) / canvas.width;
+                const rawSt = this.orbitDirection > 0 ? this.orbitT : 1 - this.orbitT;
+                // st spans 0→1 over the full traversal incl. off-screen overshoot on both sides,
+                // so the arc is already curving when the sprite first peeks into the visible area.
+                const st = (rawSt + ot) / (1 + 2 * ot);
+                this.x = this.orbitT * canvas.width - this.w / 2;
+                this.y = this.orbitEntryY - (this.orbitEntryY - this.orbitPeakY) * Math.sin(Math.PI * st) - this.h / 2;
+                if ((this.orbitDirection > 0 && this.orbitT > 1 + ot) ||
+                    (this.orbitDirection < 0 && this.orbitT < -ot)) {
+                    this.orbitWaiting = true;
+                    const cat = this.category;
+                    const waitMin = Number.isFinite(cat.orbitWaitMinFrames) ? cat.orbitWaitMinFrames : 120;
+                    const waitMax = Number.isFinite(cat.orbitWaitMaxFrames) ? cat.orbitWaitMaxFrames : 300;
+                    this.orbitWaitTimer = Math.floor(waitMin + Math.random() * Math.max(0, waitMax - waitMin));
+                }
+            }
             return this.updateFade();
         }
 
@@ -543,7 +601,7 @@ class FloatingImage {
         } else if (this.style === 'ufo' && this.bubbleTrail) {
             this.drawBubbleTrail(alpha, centerX, centerY);
             this.drawDirectionalImage(alpha, centerX, centerY);
-        } else if (this.style === 'pedestrian' || this.style === 'walk' || this.style === 'ufo' || this.style === 'sway' || this.style === 'spin') {
+        } else if (this.style === 'pedestrian' || this.style === 'walk' || this.style === 'ufo' || this.style === 'sway' || this.style === 'spin' || this.style === 'orbit') {
             this.drawDirectionalImage(alpha, centerX, centerY);
         } else {
             ctx.globalAlpha = alpha;

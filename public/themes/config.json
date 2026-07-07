@@ -1,5 +1,5 @@
 {
-  "activeTheme": "unterwasser",
+  "activeTheme": "stadt",
   "themes": {
     "weltall": {
       "image": "weltall.png",
@@ -34,11 +34,15 @@
           "id": "ufo",
           "icon": "🛸",
           "label": "Raumschiff/UFO",
-          "style": "ufo",
-          "yMinPct": 0,
-          "yMaxPct": 100,
-          "speedMin": 0.75,
-          "speedMax": 0.95,
+          "style": "orbit",
+          "orbitCenterXPct": 50,
+          "orbitPeakYPctMin": 15,
+          "orbitPeakYPctMax": 28,
+          "orbitEntryYPct": 72,
+          "speedMin": 0.003,
+          "speedMax": 0.007,
+          "orbitWaitMinFrames": 120,
+          "orbitWaitMaxFrames": 300,
           "scalePct": 100
         },
         {
