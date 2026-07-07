@@ -15,9 +15,8 @@ function getMascot() {
     return { name: "Finn", image: "/media/shark-mascot-1.png"};
   } else if (theme === "jungle") {
     return { name: "Momo", image: "/media/monkey-mascot.png"};
-  } else if (theme === "stadt") {
-    return { name: "Arti", image: "/media/universal-mascot-arti-color-only.png"};
   }
+  return { name: "Arti", image: "/media/universal-mascot-arti-color-only.png"};
 }
 
 const mascotInfo = getMascot();
@@ -28,23 +27,106 @@ const kidsTutorial = {
     intro: {
       text: `Hey, ich bin ${mascotInfo.name}.<br>Lass uns etwas zeichnen!`,
       mascot: mascotInfo.image,
-      next: () => isDrawViewActive() ? "draw" : "category",
+      next: () => isDrawViewActive() ? "drawView" : "categoryView",
       showContinueBtn: true
     },
-    category: {
+    categoryView: {
       text: "Wähle zuerst eine Kategorie aus, welche du zeichnen möchtest.",
       mascot: mascotInfo.image,
       highlight: "#cardsContainer",
       continuesOnClick: true,
-      next: () => "draw",
+      next: () => "drawView",
       showContinueBtn: false
     },
-    draw: {
+    drawView: {
       text: "Jetzt wird gezeichnet! 🎨",
+      mascot: mascotInfo.image,
+      next: () => "colors",
+      showContinueBtn: true
+    },
+    colors: {
+      text: "Such dir eine Farbe aus.",
+      mascot: mascotInfo.image,
+      highlight: "#colors",
+      next: () => "strokeSlider",
+      showContinueBtn: true
+    },
+    strokeSlider: {
+      text: "Hier kannst du den Stift dicker oder dünner machen.",
+      mascot: mascotInfo.image,
+      highlight: "#stroke-slider",
+      next: () => "toolPicker",
+      showContinueBtn: true
+    },
+    toolPicker: {
+      text: "Wähle hier ein Werkzeug aus...",
+      mascot: mascotInfo.image,
+      highlight: "#toolPicker",
+      next: () => "pencil",
+      showContinueBtn: true
+    },
+    pencil: {
+      text: "Mit dem Stift zeichnest du Linien.",
+      mascot: mascotInfo.image,
+      highlight: "#drawTool",
+      next: () => "fillTool",
+      showContinueBtn: true
+    },
+    fillTool: {
+      text: "Mit dem Farbeimer füllst du Flächen.",
+      mascot: mascotInfo.image,
+      highlight: "#fillTool",
+      next: () => "eraser",
+      showContinueBtn: true
+    },
+    eraser: {
+      text: "Mit dem Radierer kannst du Fehler korrigieren.",
+      mascot: mascotInfo.image,
+      highlight: "#erase",
+      next: () => "undoRedo",
+      showContinueBtn: true
+    },
+    undoRedo: {
+      text: "Hast du dich vertan? Kein Problem!<br><br>Einfach hier rückgängig machen oder wiederherstellen.",
+      mascot: mascotInfo.image,
+      highlight: "#historyControls",
+      next: () => "directionPicker",
+      showContinueBtn: true
+    },
+    directionPicker: {
+      text: "Deine Zeichnung wird sich bewegen.<br>Hier kannst du die Richtung der Bewegung ändern.",
+      mascot: mascotInfo.image,
+      highlight: "#directionPicker",
+      next: () => "backToCategory",
+      showContinueBtn: true
+    },
+    backToCategory: {
+      text: "Du wolltest eigentlich eine andere Kategorie? Hier geht's zurück!",
+      mascot: mascotInfo.image,
+      highlight: "#back",
+      next: () => "clearDrawing",
+      showContinueBtn: true
+    },
+    clearDrawing: {
+      text: "Hier kannst du deine gesamte Zeichnung löschen und von vorne anfangen.",
+      mascot: mascotInfo.image,
+      highlight: "#clear",
+      next: () => "send",
+      showContinueBtn: true
+    },
+    send: {
+      text: "Bist du fertig? Dann kannst du hier deine Zeichnung abschicken und sie wird lebendig!",
+      mascot: mascotInfo.image,
+      highlight: "#send",
+      next: () => "drawArea",
+      showContinueBtn: true
+    },
+    drawArea: {
+      text: "Und nun leg los!<br>Du kannst die gezeigte Vorlage zur Hilfe nutzen, oder einfach malen wie du möchtest.",
       mascot: mascotInfo.image,
       next: () => null,
       showContinueBtn: true
-    }
+    },    
   }
 }
 
@@ -99,7 +181,6 @@ continueBtn.addEventListener("click", () => {
 });
 
 document.getElementById("kids-tutorial-close-btn").addEventListener("click", () => {
-  skipCloseBtn = true;
   endTutorial();
 });
 
@@ -167,16 +248,36 @@ function highlightElement(selector, continuesOnClick = false) {
     return;
   }
 
+  const rect = elem.getBoundingClientRect();
+  const computed = window.getComputedStyle(elem);
+
+  // Create a placeholder to maintain the layout flow while the original element
+  // is temporarily set to position:fixed for the highlight effect.
+  const placeholder = document.createElement("div");
+  placeholder.style.width = rect.width + "px";
+  placeholder.style.height = rect.height + "px";
+  placeholder.style.margin = computed.margin;
+  placeholder.style.flex = computed.flex;
+  placeholder.style.display = (computed.display === "inline") ? "inline-block" : computed.display;
+  placeholder.style.visibility = "hidden";
+  placeholder.style.pointerEvents = "none";
+
   originalStyles = {
     position: elem.style.position,
     top: elem.style.top,
     left: elem.style.left,
     width: elem.style.width,
     height: elem.style.height,
-    pointerEvents: elem.style.pointerEvents
+    pointerEvents: elem.style.pointerEvents,
+    placeholder: placeholder,
+    parent: elem.parentNode,
+    nextSibling: elem.nextSibling
   };
 
-  const rect = elem.getBoundingClientRect();
+  // Move the element to document.body to "escape" parent constraints 
+  // like 'backdrop-filter' or 'overflow: hidden' which break 'position: fixed' coordinates.
+  elem.parentNode.insertBefore(placeholder, elem);
+  document.body.appendChild(elem);
 
   elem.classList.add("kids-tutorial-highlight");
   elem.style.position = "fixed";
@@ -192,19 +293,17 @@ function highlightElement(selector, continuesOnClick = false) {
       hideOverlay();
       const step = kidsTutorial.steps[kidsTutorial.currentKey];
       const nextKey = step.next ? step.next() : null;
-      kidsTutorial.currentKey = nextKey || "draw";
+      kidsTutorial.currentKey = nextKey || "drawArea";
       if (nextKey) {
         showCurrentStep();
       } else {
         endTutorial();
       }
     };
-  } else {
-    highlightClickHandler = () => {
-      endTutorial();
-    };
   }
-  elem.addEventListener("click", highlightClickHandler);
+  if (highlightClickHandler) {
+    elem.addEventListener("click", highlightClickHandler);
+  }
 
   const hole = document.createElement("div");
   hole.className = "kids-tutorial-hole";
@@ -227,12 +326,21 @@ function clearHighlight() {
     currentHighlightElem.classList.remove("kids-tutorial-highlight");
 
     if (originalStyles) {
+      // Move the element back to its original place in the DOM
+      if (originalStyles.parent) {
+        originalStyles.parent.insertBefore(currentHighlightElem, originalStyles.nextSibling);
+      }
+
       currentHighlightElem.style.position = originalStyles.position || "";
       currentHighlightElem.style.top = originalStyles.top || "";
       currentHighlightElem.style.left = originalStyles.left || "";
       currentHighlightElem.style.width = originalStyles.width || "";
       currentHighlightElem.style.height = originalStyles.height || "";
       currentHighlightElem.style.pointerEvents = originalStyles.pointerEvents || "";
+
+      if (originalStyles.placeholder) {
+        originalStyles.placeholder.remove();
+      }
     }
 
     currentHighlightElem = null;
