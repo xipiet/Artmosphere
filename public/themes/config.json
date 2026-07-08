@@ -3,8 +3,10 @@
   "themes": {
     "weltall": {
       "image": "weltall.png",
-      "foregroundImage": "/media/steine_foreground_unfertig.png",
-      "transitionVideo": "/media/artmosphere%20weltraum%20transition1.mov",
+      "foregroundImage": "/media/steine_foreground_weltall.png",
+      "transitionVideo": {
+        "stadt": "/media/stadt%20zu%20weltall%20transition.mp4"
+      },
       "categories": [
         {
           "id": "plant",
@@ -16,7 +18,9 @@
           "yMinPct": 55,
           "yMaxPct": 100,
           "speedMin": 0.05,
-          "speedMax": 0.1
+          "speedMax": 0.1,
+          "template": "/media/alien%20pflanze.svg",
+          "templateSize": "45% auto"
         },
         {
           "id": "alien",
@@ -28,7 +32,9 @@
           "yMinPct": 55,
           "yMaxPct": 100,
           "speedMin": 0.13,
-          "speedMax": 0.22
+          "speedMax": 0.22,
+          "template": "/media/alien.svg",
+          "templateSize": "30% auto"
         },
         {
           "id": "ufo",
@@ -43,7 +49,9 @@
           "speedMax": 0.007,
           "orbitWaitMinFrames": 120,
           "orbitWaitMaxFrames": 300,
-          "scalePct": 100
+          "scalePct": 100,
+          "template": "/media/ufo.svg",
+          "templateSize": "70% auto"
         },
         {
           "id": "rocket",
@@ -67,15 +75,17 @@
           "yMaxPct": 50,
           "speedMin": 0.04,
           "speedMax": 0.08,
-          "scalePct": 50
+          "scalePct": 50,
+          "template": "/media/himmelsk%C3%B6rper.svg",
+          "templateSize": "75% auto"
         }
       ]
     },
     "stadt": {
       "image": "stadt.png",
       "transitionVideo": {
-        "weltall": "/media/artmosphere%20weltraum%20zu%20stadt%20transition1.mov",
-        "unterwasser": "/media/unterwasser%20zu%20stadt%20transition1.mov"
+        "weltall": "/media/weltall%20zu%20stadt%20transition.mp4",
+        "unterwasser": "/media/unterwasser%20zu%20stadt%20transition.mp4"
       },
       "categories": [
         {
@@ -132,17 +142,23 @@
     "unterwasser": {
       "image": "unterwasser.png",
       "foregroundImage": "/media/steine_foreground_unterwasser.png",
-      "transitionVideo": "/media/stadt%20zu%20unterwasser%20transition1.mov",
+      "transitionVideo": {
+        "stadt": "/media/stadt%20zu%20unterwasser%20transition.mp4"
+      },
       "categories": [
         {
           "id": "plant",
           "icon": "🌿",
           "label": "Pflanze",
           "style": "sway",
-          "yMinPct": 65,
-          "yMaxPct": 100,
+          "xMinPct": 15,
+          "xMaxPct": 89,
+          "yMinPct": 90,
+          "yMaxPct": 97,
           "speedMin": 0.05,
-          "speedMax": 0.1
+          "speedMax": 0.1,
+          "template": "/media/unterwasserpflanze.svg",
+          "templateSize": "45% auto"
         },
         {
           "id": "creature",
@@ -151,13 +167,15 @@
           "style": "walk",
           "yMinPct": 0,
           "yMaxPct": 100,
-          "speedMin": 0.15,
-          "speedMax": 0.25,
+          "speedMin": 0.4,
+          "speedMax": 0.6,
           "walkBobAmplitudeMin": 0.5,
           "walkBobAmplitudeMax": 1,
           "walkTiltAmplitudeMin": 0.003,
           "walkTiltAmplitudeMax": 0.006,
           "scalePct": 60,
+          "template": "/media/fisch.svg",
+          "templateSize": "75% auto",
           "driftAmplitudeMin": 15,
           "driftAmplitudeMax": 30,
           "driftSpeedMin": 0.004,
@@ -174,31 +192,48 @@
           "style": "ufo",
           "yMinPct": 0,
           "yMaxPct": 85,
-          "speedMin": 0.8,
-          "speedMax": 1,
+          "speedMin": 1.5,
+          "speedMax": 2,
           "scalePct": 110,
-          "bubbleTrail": true
+          "bubbleTrail": true,
+          "template": "/media/uboot.svg",
+          "templateSize": "75% auto"
         },
         {
           "id": "fantasy",
           "icon": "🧜",
           "label": "Fantasiewesen",
-          "style": "ufo",
+          "style": "walk",
           "yMinPct": 0,
           "yMaxPct": 100,
-          "speedMin": 0.12,
-          "speedMax": 0.2
+          "speedMin": 1.2,
+          "speedMax": 1.5,
+          "walkBobAmplitudeMin": 0.5,
+          "walkBobAmplitudeMax": 1,
+          "walkTiltAmplitudeMin": 0.003,
+          "walkTiltAmplitudeMax": 0.006,
+          "scalePct": 60,
+          "driftAmplitudeMin": 15,
+          "driftAmplitudeMax": 30,
+          "driftSpeedMin": 0.004,
+          "driftSpeedMax": 0.009,
+          "template": "/media/meerjungfrau.svg",
+          "templateSize": "80% auto"
         },
         {
           "id": "treasure",
           "icon": "🏺",
           "label": "Schätze & Artefakte",
-          "style": "spin",
-          "yMinPct": 85,
-          "yMaxPct": 100,
+          "style": "still",
+          "xMinPct": 15,
+          "xMaxPct": 90,
+          "yMinPct": 92,
+          "yMaxPct": 98,
           "speedMin": 0.02,
           "speedMax": 0.05,
-          "scalePct": 60
+          "scalePct": 60,
+          "template": "/media/schatztruhe.svg",
+          "templateSize": "60% auto"
         }
       ]
     }

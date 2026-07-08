@@ -334,6 +334,23 @@ class FloatingImage {
             this.swayPhase = Math.random() * Math.PI * 2;
             this.swaySpeed = Math.random() * 0.01 + 0.008;
             this.swayAmplitude = Math.random() * 0.05 + 0.04;
+            // Root (bottom of image) sits within the yMinPct..yMaxPct band.
+            // Use raw percentages (not yBounds) so tall images aren't clamped
+            // upward — their top may go off-screen but the root stays on the floor.
+            const swayRootMin = canvas.height * (this.category.yMinPct / 100);
+            const swayRootMax = canvas.height * (this.category.yMaxPct / 100);
+            const swayRoot = swayRootMin + Math.random() * Math.max(0, swayRootMax - swayRootMin);
+            this.y = swayRoot - this.h * 0.75;
+            this.baseY = this.y;
+        } else if (this.style === 'still') {
+            this.vx = 0;
+            this.vy = 0;
+            // Root (bottom of image) sits within the yMinPct..yMaxPct band.
+            const stillRootMin = canvas.height * (this.category.yMinPct / 100);
+            const stillRootMax = canvas.height * (this.category.yMaxPct / 100);
+            const stillRoot = stillRootMin + Math.random() * Math.max(0, stillRootMax - stillRootMin);
+            this.y = stillRoot - this.h * 0.75;
+            this.baseY = this.y;
         } else if (this.style === 'spin') {
             this.vx = 0;
             this.vy = 0;
@@ -368,6 +385,10 @@ class FloatingImage {
 
         if (this.style === 'sway') {
             this.rotation = Math.sin(this.age * this.swaySpeed + this.swayPhase) * this.swayAmplitude;
+            return this.updateFade();
+        }
+
+        if (this.style === 'still') {
             return this.updateFade();
         }
 
@@ -509,6 +530,20 @@ class FloatingImage {
         ctx.restore();
     }
 
+    drawRootedImage(alpha, centerX) {
+        // Pivot at 3/4 of image height: bottom quarter is "in the ground",
+        // top three-quarters sway above the floor.
+        const rootFraction = 0.75;
+        const pivotX = centerX;
+        const pivotY = this.y + this.h * rootFraction;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(pivotX, pivotY);
+        ctx.rotate(this.rotation);
+        ctx.drawImage(this.img, -this.w / 2, -this.h * rootFraction, this.w, this.h);
+        ctx.restore();
+    }
+
     // Small rising/fading bubbles trailing behind a vehicle (opposite of its
     // movement direction), for a "powered, mechanical" underwater feel.
     // Anchored to the vehicle's own center with a small fixed rise, so the
@@ -601,7 +636,9 @@ class FloatingImage {
         } else if (this.style === 'ufo' && this.bubbleTrail) {
             this.drawBubbleTrail(alpha, centerX, centerY);
             this.drawDirectionalImage(alpha, centerX, centerY);
-        } else if (this.style === 'pedestrian' || this.style === 'walk' || this.style === 'ufo' || this.style === 'sway' || this.style === 'spin' || this.style === 'orbit') {
+        } else if (this.style === 'sway' || this.style === 'still') {
+            this.drawRootedImage(alpha, centerX);
+        } else if (this.style === 'pedestrian' || this.style === 'walk' || this.style === 'ufo' || this.style === 'spin' || this.style === 'orbit') {
             this.drawDirectionalImage(alpha, centerX, centerY);
         } else {
             ctx.globalAlpha = alpha;
@@ -793,17 +830,20 @@ socket.on("config:changed", (config) => {
     const applyTheme = () => {
         themeConfig = theme;
         activeThemeName = themeName;
-        activeImages.length = 0; // Clear active images
+        activeImages.length = 0;
 
         statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
 
         canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.image)}")`;
         applyForegroundImage(theme);
+
+        // Delay ambient bubbles so they don't appear mid-screen during the transition
+        if (themeName === 'unterwasser') bubbleBurstCountdown = 360;
     };
 
     if (themeChanged) {
-        // Defer the visible swap until the transition video is covering the screen
-        // (or apply immediately if this theme has no transition video).
+        // Preload the next background so it's cached when the video ends
+        new Image().src = `/theme-image/${encodeURIComponent(theme.image)}`;
         playThemeTransition(theme, previousThemeName, applyTheme);
     } else {
         applyTheme();
@@ -851,13 +891,15 @@ socket.on("newImage", ({ id, dataUrl, movementType, facingDirection, score }) =>
             return;
         }
 
-        let finalImg = img;
-        
+        const addImage = (finalImg) => {
+            activeImages.push(new FloatingImage(id, finalImg, category, facingDirection, score));
+        };
+
         // Normalize size if enabled
         if (serverSettings.normalizeSize) {
             const aspectRatio = img.width / img.height;
             let newWidth, newHeight;
-            
+
             // Scale to fit within MAX_PAINTING_SIZE, preserving aspect ratio
             if (aspectRatio > 1) {
                 // Wider than tall
@@ -868,26 +910,30 @@ socket.on("newImage", ({ id, dataUrl, movementType, facingDirection, score }) =>
                 newHeight = MAX_PAINTING_SIZE;
                 newWidth = MAX_PAINTING_SIZE * aspectRatio;
             }
-            
+
             // Create canvas with max size, center the image (letterbox style)
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = MAX_PAINTING_SIZE;
             tempCanvas.height = MAX_PAINTING_SIZE;
             const tempCtx = tempCanvas.getContext('2d');
-            
+
             // Fill with transparent background
             tempCtx.clearRect(0, 0, MAX_PAINTING_SIZE, MAX_PAINTING_SIZE);
-            
+
             // Center the image
             const x = (MAX_PAINTING_SIZE - newWidth) / 2;
             const y = (MAX_PAINTING_SIZE - newHeight) / 2;
             tempCtx.drawImage(img, x, y, newWidth, newHeight);
-            
-            finalImg = new Image();
+
+            // Wait for the scaled image to fully load before constructing
+            // FloatingImage — otherwise img.height = 0 at init time, which
+            // breaks sway/still positioning (this.y is set only once).
+            const finalImg = new Image();
+            finalImg.onload = () => addImage(finalImg);
             finalImg.src = tempCanvas.toDataURL();
+        } else {
+            addImage(img);
         }
-        
-        activeImages.push(new FloatingImage(id, finalImg, category, facingDirection, score));
     };
     img.src = dataUrl;
 });
@@ -936,13 +982,15 @@ socket.on("main:allImages", ({ images }) => {
                 return;
             }
 
-            let finalImg = img;
-            
+            const addImage = (finalImg) => {
+                activeImages.push(new FloatingImage(imageData.id, finalImg, category, imageData.facingDirection, imageData.score));
+            };
+
             // Normalize size if enabled
             if (serverSettings.normalizeSize) {
                 const aspectRatio = img.width / img.height;
                 let newWidth, newHeight;
-                
+
                 if (aspectRatio > 1) {
                     newWidth = MAX_PAINTING_SIZE;
                     newHeight = MAX_PAINTING_SIZE / aspectRatio;
@@ -950,23 +998,24 @@ socket.on("main:allImages", ({ images }) => {
                     newHeight = MAX_PAINTING_SIZE;
                     newWidth = MAX_PAINTING_SIZE * aspectRatio;
                 }
-                
+
                 const tempCanvas = document.createElement('canvas');
                 tempCanvas.width = MAX_PAINTING_SIZE;
                 tempCanvas.height = MAX_PAINTING_SIZE;
                 const tempCtx = tempCanvas.getContext('2d');
-                
+
                 tempCtx.clearRect(0, 0, MAX_PAINTING_SIZE, MAX_PAINTING_SIZE);
-                
+
                 const x = (MAX_PAINTING_SIZE - newWidth) / 2;
                 const y = (MAX_PAINTING_SIZE - newHeight) / 2;
                 tempCtx.drawImage(img, x, y, newWidth, newHeight);
-                
-                finalImg = new Image();
+
+                const finalImg = new Image();
+                finalImg.onload = () => addImage(finalImg);
                 finalImg.src = tempCanvas.toDataURL();
+            } else {
+                addImage(img);
             }
-            
-            activeImages.push(new FloatingImage(imageData.id, finalImg, category, imageData.facingDirection, imageData.score));
         };
         img.src = imageData.dataUrl;
     });
