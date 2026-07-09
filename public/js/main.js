@@ -30,6 +30,40 @@ function resolveTransitionVideo(theme, fromThemeName) {
     return tv[fromThemeName] || tv.default || null;
 }
 
+// Transition videos are large (~20 MB) and are normally fetched from the server
+// the instant a theme switch happens. Under event load (many iPads uploading)
+// that download loses the race against the fallback timers and the animation is
+// skipped. So we preload every transition video into a local blob once, up front
+// (on page load / reconnect, while the network is quiet), and play the switch
+// from that object URL — zero network at switch time.
+const transitionVideoCache = new Map(); // network URL -> object URL (blob)
+
+function collectTransitionVideoUrls(config) {
+    const urls = new Set();
+    const themes = (config && config.themes) || {};
+    for (const theme of Object.values(themes)) {
+        const tv = theme && theme.transitionVideo;
+        if (!tv) continue;
+        if (typeof tv === 'string') urls.add(tv);
+        else for (const v of Object.values(tv)) if (v) urls.add(v);
+    }
+    return Array.from(urls);
+}
+
+// Warm the cache sequentially so the preload itself doesn't saturate the link.
+async function preloadTransitionVideos(config) {
+    for (const url of collectTransitionVideoUrls(config)) {
+        if (transitionVideoCache.has(url)) continue;
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            transitionVideoCache.set(url, URL.createObjectURL(await res.blob()));
+        } catch (err) {
+            console.warn('Transition video preload failed:', url, err.message);
+        }
+    }
+}
+
 // Plays the transition video matching (theme, fromThemeName) - if any - as a
 // fullscreen overlay. Once the video is actually covering the screen (or
 // immediately, if there's no video), calls onCovered() so the underlying
@@ -97,7 +131,7 @@ function playThemeTransition(theme, fromThemeName, onCovered) {
     themeTransitionVideo.addEventListener('ended', themeTransitionEndedHandler);
     themeTransitionVideo.addEventListener('playing', themeTransitionPlayingHandler);
 
-    themeTransitionVideo.src = videoSrc;
+    themeTransitionVideo.src = transitionVideoCache.get(videoSrc) || videoSrc;
     themeTransitionVideo.style.display = 'block';
     themeTransitionVideo.currentTime = 0;
 
@@ -109,11 +143,15 @@ function playThemeTransition(theme, fromThemeName, onCovered) {
         });
     }
 
-    // Fallback: swap the theme underneath even if 'playing' never fires quickly
-    themeTransitionCoverTimeoutId = setTimeout(cover, 1000);
+    // Fallback: swap the theme underneath even if 'playing' never fires quickly.
+    // 5s (was 1s) gives a slow/uncached video far more room to actually start
+    // before we give up and swap without it.
+    themeTransitionCoverTimeoutId = setTimeout(cover, 5000);
 
-    // Safety: hide the overlay regardless after 5s
-    themeTransitionHideTimeoutId = setTimeout(hide, 5000);
+    // Safety: hide the overlay regardless. The videos are ~5.0s long, so the old
+    // 5s cut the last frame; 8s lets the clip finish (and a slightly late start
+    // still complete) while 'ended' hides it early in the normal case.
+    themeTransitionHideTimeoutId = setTimeout(hide, 8000);
 }
 
 const TARGET_AREA = 50000; // pixels² for normalization
@@ -1122,6 +1160,11 @@ socket.on("app:init", (d) => {
     canvas.style.backgroundImage = `url("${bgUrl}")`;
     setThemeBackground(theme);
     applyForegroundImage(theme);
+
+    // Warm all transition videos into local blobs now (page load / reconnect,
+    // typically before the crowd arrives) so later theme switches never fetch a
+    // ~20 MB video over a saturated network.
+    preloadTransitionVideos(config);
 
     // Request all current images from server
     socket.emit("main:requestAllImages");
