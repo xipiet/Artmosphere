@@ -70,3 +70,6 @@ socket.on('image:voteUpdate', scheduleRefetch);
 socket.on('newImage', scheduleRefetch);
 // A work just got saved → its name changed from "Anonym" to the entered name.
 socket.on('image:saved', scheduleRefetch);
+// Gallery changed (theme switch, cap overflow, admin remove) → the board mirrors
+// activeImages now, so refetch whenever that set changes.
+socket.on('admin:updateGallery', scheduleRefetch);

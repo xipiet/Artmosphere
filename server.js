@@ -29,14 +29,6 @@ const SAVE_PATH = process.env.ARTMOSPHERE_SAVE_PATH
 const sessionStorage = new Map(); // sessionId -> { drawingDataUrl, timestamp, themeName, movementType, facingDirection, expiresAt }
 const SESSION_TTL_MS = 10 * 60 * 1000; // 10 min — unsaved drafts are dropped after this
 
-// In-memory, session-scoped scoreboard. Keyed by image id; each value is the
-// SAME object that lives in activeImages, so Kritiker score/vote mutations are
-// reflected here automatically — no save required. Entries are NOT pruned when
-// an image leaves the wall (fade/cap/drop): the board shows every work created
-// this session, saved or not. Cleared on restart (it's just RAM), which gives
-// the per-session reset for free. Grows with drawings/session — fine for an
-// event-length run.
-const scoreboardRegistry = new Map(); // imageId -> activeImages entry
 
 try {
   fs.mkdirSync(SAVE_PATH, { recursive: true });
@@ -162,6 +154,30 @@ function saveSettings() {
   console.log("Settings saved.");
 }
 
+// Apply a new theme config from the Admin. When the active theme changes, the
+// old theme's drawings are no longer shown on the wall (main.js filters by
+// themeName), so drop them from server state too — otherwise they live on as
+// ghosts in Admin, Kritiker and the Scoreboard. activeImages is the single
+// source of truth: pruning it here keeps all three surfaces consistent.
+function applyConfig(newConfig) {
+  const prevTheme = serverConfig && serverConfig.activeTheme;
+  serverConfig = newConfig;
+  saveConfig();
+
+  const nextTheme = serverConfig && serverConfig.activeTheme;
+  if (nextTheme !== prevTheme) {
+    const stale = activeImages.filter(img => img.themeName !== nextTheme);
+    if (stale.length) {
+      activeImages = activeImages.filter(img => img.themeName === nextTheme);
+      stale.forEach(img => io.emit("admin:removeImageFromMain", img.id));
+      io.emit("admin:updateGallery", activeImages);
+      console.log(`Theme ${prevTheme} → ${nextTheme}: dropped ${stale.length} stale painting(s).`);
+    }
+  }
+
+  io.emit("config:changed", serverConfig);
+}
+
 // ----------------------------------
 // Static Files (public folder)
 // ----------------------------------
@@ -207,13 +223,13 @@ app.get("/scoreboard", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "scoreboard.html"));
 });
 
-// Scoreboard data: ranks the in-memory session registry — every artwork created
-// since this server start, SAVED OR NOT. Voting mutates these same objects, so
-// scores are live without requiring a save; the board is session-scoped because
-// the registry is RAM-only.
+// Scoreboard data: ranks the live activeImages — exactly the works currently on
+// the server (same set Admin and Kritiker see). A work leaves the board the
+// moment it leaves activeImages (theme switch, cap overflow, admin remove, fade).
+// Voting mutates these same objects, so scores are live without requiring a save.
 app.get("/api/scoreboard", (req, res) => {
   const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 10));
-  const entries = Array.from(scoreboardRegistry.values())
+  const entries = activeImages
     // Only works the Kritiker has actually rated belong on the board. Filtering
     // by score would be wrong: a fresh work and a work rated to a net-zero
     // balance (e.g. 1× sehr gut + 1× sehr schlecht) both have score 0. So we
@@ -238,9 +254,9 @@ app.get("/api/scoreboard", (req, res) => {
   res.json({
     top: byScoreDesc.slice(0, limit),
     bottom: byScoreAsc.slice(0, limit),
-    // "Werke insgesamt" counts every created work, not just the rated subset
-    // shown in the lists — the registry size, taken before the rated-filter.
-    total: scoreboardRegistry.size
+    // "Werke insgesamt" counts every live work, not just the rated subset shown
+    // in the lists — the active-images count, taken before the rated-filter.
+    total: activeImages.length
   });
 });
 
@@ -258,7 +274,7 @@ app.get("/saved/:folder/:file", (req, res) => {
   if (!resolved.startsWith(path.resolve(SAVE_PATH) + path.sep)) return res.sendStatus(404);
   // dotfiles:'allow' is needed because the default SAVE_PATH lives under
   // ~/.local/share — without this Express's sendFile rejects the path.
-  res.sendFile(resolved, { dotfiles: 'allow' }, (err) => { if (err) res.sendStatus(404); });
+  res.sendFile(resolved, { dotfiles: 'allow' }, (err) => { if (err && !res.headersSent) res.sendStatus(404); });
 });
 
 // ----------------------------------
@@ -284,7 +300,9 @@ app.get("/theme-image/:filename", (req, res) => {
   res.sendFile(filePath, (err) => {
     if (err) {
       console.error("Error serving image:", filePath, err.message);
-      res.status(404).send('Image not found');
+      // Aborted mid-transfer (EPIPE etc.): headers are already out, responding
+      // again would throw ERR_HTTP_HEADERS_SENT and crash the whole process.
+      if (!res.headersSent) res.status(404).send('Image not found');
     }
   });
 });
@@ -391,10 +409,6 @@ io.on("connection", (socket) => {
     }
 
     activeImages.push(imageData);
-    // Register for the in-memory scoreboard right away (score 0, name filled in
-    // on save). Same object ref as activeImages, so later Kritiker votes update
-    // the board automatically — and the entry survives the image leaving the wall.
-    scoreboardRegistry.set(imageId, imageData);
     io.emit("newImage", imageData);
     io.emit("admin:updateGallery", activeImages);
     // The wall-PC sees this newImage event and renders it; the headless
@@ -490,8 +504,8 @@ io.on("connection", (socket) => {
       }
     }
 
-    // Scoreboard updates automatically — `image` is the same object stored in
-    // scoreboardRegistry. Here we only flush the score to disk (no-op if unsaved).
+    // Scoreboard reads activeImages directly, so this vote is already reflected.
+    // Here we only flush the score to disk (no-op if unsaved).
     updateSavedScore(image.savedFolder, image.score, image.votes);
 
     if (removed) {
@@ -551,15 +565,11 @@ io.on("connection", (socket) => {
 
   // Admin updates Theme Config
   socket.on("admin:updateConfig", (newConfig) => {
-    serverConfig = newConfig;
-    saveConfig();
-    io.emit("config:changed", serverConfig);
+    applyConfig(newConfig);
   });
 
   socket.on("saveConfig", (newConfig, callback) => {
-    serverConfig = newConfig;
-    saveConfig();
-    io.emit("config:changed", serverConfig);
+    applyConfig(newConfig);
     if (callback) callback({ ok: true });
   });
 
@@ -692,15 +702,15 @@ io.on("connection", (socket) => {
         console.error(`[${sessionId}] polaroid render failed:`, err.message);
       }
 
-      // Bind the saved folder to the live image so subsequent Kritiker votes
-      // can flush the updated score back into metadata.json (archival on disk).
-      if (liveImage) liveImage.savedFolder = finalFolderName;
-
-      // Stamp the entered name onto the scoreboard registry entry. Done by id so
-      // it works even if the image already faded off the wall (gone from
-      // activeImages) — the registry still holds it.
-      const regEntry = scoreboardRegistry.get(sess.imageId);
-      if (regEntry) regEntry.name = trimmed;
+      // Bind the saved folder + entered name to the live image so subsequent
+      // Kritiker votes flush the updated score into metadata.json, and the
+      // scoreboard (which reads activeImages) shows the real name instead of
+      // "Anonym". If the work already left the wall there's nothing to stamp —
+      // it's off the board anyway, which is the intended single-source behaviour.
+      if (liveImage) {
+        liveImage.savedFolder = finalFolderName;
+        liveImage.name = trimmed;
+      }
 
       // Tell the scoreboard the name changed (it may have been rated and shown as
       // "Anonym" while the visitor was still on the name-entry screen). Clients
