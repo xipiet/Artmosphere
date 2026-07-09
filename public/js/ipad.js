@@ -12,12 +12,20 @@ const drawingTemplate = document.getElementById('drawingTemplate');
 const canvas = document.getElementById('drawArea');
 const ctx = canvas.getContext('2d');
 const sizeSlider = document.getElementById('sizeSlider');
+const customColorBtn = document.getElementById('customColorBtn');
+const customColorPreview = document.getElementById('customColorPreview');
+const colorPickerPopup = document.getElementById('colorPickerPopup');
+const colorWheel = document.getElementById('colorWheel');
+const colorValueSlider = document.getElementById('colorValueSlider');
+const freeColorValue = document.getElementById('freeColorValue');
+const closeColorPickerBtn = document.getElementById('closeColorPicker');
 
 let config = null;
 let activeThemeName = null;
 let theme = null;
 let drawing = false;
 let currentColor = "#000000";
+let currentColorSource = "preset";
 let currentSize = 4;
 let currentTool = "draw";
 let selectedCategory = null;       // category id (string)
@@ -26,6 +34,9 @@ let facingDirection = "right";
 const undoStack = [];
 const redoStack = [];
 const MAX_HISTORY_STEPS = 35;
+let customColorHsv = { h: 0, s: 0, v: 0 };
+let colorWheelPointerActive = false;
+let colorValuePointerActive = false;
 
 // THEME DISPLAY
 let bgImg = new Image();
@@ -134,10 +145,13 @@ function enterDrawingMode() {
     drawView.style.display = 'flex';
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     currentColor = "#000000";
+    currentColorSource = "preset";
     currentSize = 4;
     sizeSlider.value = currentSize;
     setTool("draw");
-    setActiveColorButton(currentColor);
+    setActiveColorButton(currentColor, false);
+    updateCustomColorUi(currentColor);
+    closeColorPicker();
     setFacingDirection("right");
     resetHistory();
 }
@@ -244,16 +258,272 @@ canvas.addEventListener("touchcancel", endDraw);
 
 document.querySelectorAll(".color-btn").forEach(btn => {
     btn.addEventListener("click", () => {
-        currentColor = btn.dataset.color;
-        setActiveColorButton(currentColor);
-        if (currentTool === "erase") setTool("draw");
+        setDrawingColor(btn.dataset.color, { source: "preset" });
+        closeColorPicker();
     });
 });
 
-function setActiveColorButton(color) {
+function setDrawingColor(color, options = {}) {
+    currentColor = normalizeColorHex(color);
+    currentColorSource = options.source === "custom" ? "custom" : "preset";
+    setActiveColorButton(currentColor, currentColorSource === "custom");
+    updateCustomColorUi(currentColor, { syncPicker: options.syncPicker !== false });
+    if (currentTool === "erase") setTool("draw");
+}
+
+function normalizeColorHex(color) {
+    if (typeof color !== "string") return "#000000";
+    const value = color.trim();
+    if (/^#[0-9a-f]{6}$/i.test(value)) return value.toLowerCase();
+    if (/^#[0-9a-f]{3}$/i.test(value)) {
+        return "#" + value.slice(1).split("").map(ch => ch + ch).join("").toLowerCase();
+    }
+    return "#000000";
+}
+
+function setActiveColorButton(color, preferCustom = false) {
+    let matchedPreset = false;
     document.querySelectorAll(".color-btn").forEach(btn => {
-        btn.classList.toggle("active", btn.dataset.color === color);
+        const isActive = !preferCustom && normalizeColorHex(btn.dataset.color) === normalizeColorHex(color);
+        btn.classList.toggle("active", isActive);
+        if (isActive) matchedPreset = true;
     });
+    if (customColorBtn) customColorBtn.classList.toggle("active", preferCustom || !matchedPreset);
+}
+
+function updateCustomColorUi(color, options = {}) {
+    const normalized = normalizeColorHex(color);
+    if (options.syncPicker !== false) {
+        customColorHsv = hexToHsv(normalized);
+    }
+    if (freeColorValue) freeColorValue.textContent = normalized.toUpperCase();
+    if (customColorPreview) customColorPreview.style.background = normalized;
+    renderCustomColorPicker();
+}
+
+function hexToRgb(hex) {
+    const normalized = normalizeColorHex(hex).slice(1);
+    return {
+        r: parseInt(normalized.slice(0, 2), 16),
+        g: parseInt(normalized.slice(2, 4), 16),
+        b: parseInt(normalized.slice(4, 6), 16)
+    };
+}
+
+function rgbToHex({ r, g, b }) {
+    return "#" + [r, g, b]
+        .map(value => Math.round(Math.min(255, Math.max(0, value))).toString(16).padStart(2, "0"))
+        .join("");
+}
+
+function hexToHsv(hex) {
+    const { r, g, b } = hexToRgb(hex);
+    const rf = r / 255;
+    const gf = g / 255;
+    const bf = b / 255;
+    const max = Math.max(rf, gf, bf);
+    const min = Math.min(rf, gf, bf);
+    const delta = max - min;
+    let h = 0;
+
+    if (delta !== 0) {
+        if (max === rf) h = ((gf - bf) / delta) % 6;
+        else if (max === gf) h = (bf - rf) / delta + 2;
+        else h = (rf - gf) / delta + 4;
+        h *= 60;
+        if (h < 0) h += 360;
+    }
+
+    return {
+        h,
+        s: max === 0 ? 0 : delta / max,
+        v: max
+    };
+}
+
+function hsvToRgb(h, s, v) {
+    const chroma = v * s;
+    const x = chroma * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = v - chroma;
+    let rf = 0;
+    let gf = 0;
+    let bf = 0;
+
+    if (h < 60) [rf, gf, bf] = [chroma, x, 0];
+    else if (h < 120) [rf, gf, bf] = [x, chroma, 0];
+    else if (h < 180) [rf, gf, bf] = [0, chroma, x];
+    else if (h < 240) [rf, gf, bf] = [0, x, chroma];
+    else if (h < 300) [rf, gf, bf] = [x, 0, chroma];
+    else [rf, gf, bf] = [chroma, 0, x];
+
+    return {
+        r: (rf + m) * 255,
+        g: (gf + m) * 255,
+        b: (bf + m) * 255
+    };
+}
+
+function getCanvasPointerPos(targetCanvas, e) {
+    const rect = targetCanvas.getBoundingClientRect();
+    return {
+        x: (e.clientX - rect.left) * (targetCanvas.width / rect.width),
+        y: (e.clientY - rect.top) * (targetCanvas.height / rect.height)
+    };
+}
+
+function renderCustomColorPicker() {
+    renderColorWheel();
+    renderColorValueSlider();
+}
+
+function renderColorWheel() {
+    if (!colorWheel) return;
+    const wheelCtx = colorWheel.getContext("2d");
+    const width = colorWheel.width;
+    const height = colorWheel.height;
+    const radius = Math.min(width, height) / 2 - 2;
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const image = wheelCtx.createImageData(width, height);
+
+    for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+            const dx = x - centerX;
+            const dy = y - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const index = (y * width + x) * 4;
+
+            if (distance <= radius) {
+                const hue = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+                const saturation = Math.min(1, distance / radius);
+                const rgb = hsvToRgb(hue, saturation, 1);
+                image.data[index] = rgb.r;
+                image.data[index + 1] = rgb.g;
+                image.data[index + 2] = rgb.b;
+                image.data[index + 3] = 255;
+            } else {
+                image.data[index + 3] = 0;
+            }
+        }
+    }
+
+    wheelCtx.clearRect(0, 0, width, height);
+    wheelCtx.putImageData(image, 0, 0);
+
+    const markerAngle = customColorHsv.h * Math.PI / 180;
+    const markerRadius = customColorHsv.s * radius;
+    const markerX = centerX + Math.cos(markerAngle) * markerRadius;
+    const markerY = centerY + Math.sin(markerAngle) * markerRadius;
+    wheelCtx.lineWidth = 3;
+    wheelCtx.strokeStyle = "#fff";
+    wheelCtx.beginPath();
+    wheelCtx.arc(markerX, markerY, 7, 0, Math.PI * 2);
+    wheelCtx.stroke();
+    wheelCtx.lineWidth = 1.5;
+    wheelCtx.strokeStyle = "rgba(0,0,0,0.75)";
+    wheelCtx.beginPath();
+    wheelCtx.arc(markerX, markerY, 9, 0, Math.PI * 2);
+    wheelCtx.stroke();
+}
+
+function renderColorValueSlider() {
+    if (!colorValueSlider) return;
+    const sliderCtx = colorValueSlider.getContext("2d");
+    const width = colorValueSlider.width;
+    const height = colorValueSlider.height;
+    const fullColor = rgbToHex(hsvToRgb(customColorHsv.h, customColorHsv.s, 1));
+    const gradient = sliderCtx.createLinearGradient(0, 0, width, 0);
+    gradient.addColorStop(0, "#000000");
+    gradient.addColorStop(1, fullColor);
+
+    sliderCtx.clearRect(0, 0, width, height);
+    sliderCtx.fillStyle = gradient;
+    sliderCtx.fillRect(0, 0, width, height);
+
+    const markerX = customColorHsv.v * width;
+    sliderCtx.lineWidth = 3;
+    sliderCtx.strokeStyle = "#fff";
+    sliderCtx.beginPath();
+    sliderCtx.arc(markerX, height / 2, 8, 0, Math.PI * 2);
+    sliderCtx.stroke();
+    sliderCtx.lineWidth = 1.5;
+    sliderCtx.strokeStyle = "rgba(0,0,0,0.75)";
+    sliderCtx.beginPath();
+    sliderCtx.arc(markerX, height / 2, 10, 0, Math.PI * 2);
+    sliderCtx.stroke();
+}
+
+function applyCustomHsvColor() {
+    const hex = rgbToHex(hsvToRgb(customColorHsv.h, customColorHsv.s, customColorHsv.v));
+    setDrawingColor(hex, { source: "custom", syncPicker: false });
+}
+
+function updateColorWheelFromPointer(e) {
+    if (!colorWheel) return;
+    const { x, y } = getCanvasPointerPos(colorWheel, e);
+    const radius = Math.min(colorWheel.width, colorWheel.height) / 2 - 2;
+    const centerX = colorWheel.width / 2;
+    const centerY = colorWheel.height / 2;
+    const dx = x - centerX;
+    const dy = y - centerY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > 1) {
+        customColorHsv.h = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+    }
+    customColorHsv.s = Math.min(1, distance / radius);
+    if (customColorHsv.v < 0.08) customColorHsv.v = 1;
+    applyCustomHsvColor();
+}
+
+function updateColorValueFromPointer(e) {
+    if (!colorValueSlider) return;
+    const { x } = getCanvasPointerPos(colorValueSlider, e);
+    customColorHsv.v = Math.min(1, Math.max(0, x / colorValueSlider.width));
+    applyCustomHsvColor();
+}
+
+function positionColorPickerPopup() {
+    if (!customColorBtn || !colorPickerPopup || colorPickerPopup.hidden) return;
+    const rect = customColorBtn.getBoundingClientRect();
+    const margin = 12;
+    const popupWidth = colorPickerPopup.offsetWidth;
+    const popupHeight = colorPickerPopup.offsetHeight;
+    const left = Math.min(
+        window.innerWidth - popupWidth - margin,
+        Math.max(margin, rect.left + rect.width / 2 - popupWidth / 2)
+    );
+    const top = Math.min(
+        window.innerHeight - popupHeight - margin,
+        rect.bottom + 12
+    );
+    colorPickerPopup.style.left = `${left}px`;
+    colorPickerPopup.style.top = `${Math.max(margin, top)}px`;
+}
+
+function openColorPicker() {
+    if (!customColorBtn || !colorPickerPopup) return;
+    colorPickerPopup.hidden = false;
+    customColorBtn.setAttribute("aria-expanded", "true");
+    currentColorSource = "custom";
+    setActiveColorButton(currentColor, true);
+    customColorHsv = hexToHsv(currentColor);
+    renderCustomColorPicker();
+    positionColorPickerPopup();
+}
+
+function closeColorPicker() {
+    if (!customColorBtn || !colorPickerPopup) return;
+    colorPickerPopup.hidden = true;
+    customColorBtn.setAttribute("aria-expanded", "false");
+}
+
+function toggleColorPicker() {
+    if (!colorPickerPopup || colorPickerPopup.hidden) {
+        openColorPicker();
+    } else {
+        closeColorPicker();
+    }
 }
 
 function setTool(tool) {
@@ -268,6 +538,76 @@ document.getElementById("fillTool").addEventListener("click", () => setTool("fil
 document.getElementById("erase").addEventListener("click", () => setTool("erase"));
 document.getElementById("undoBtn").addEventListener("click", undoCanvas);
 document.getElementById("redoBtn").addEventListener("click", redoCanvas);
+
+if (customColorBtn) {
+    customColorBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleColorPicker();
+    });
+}
+
+if (colorPickerPopup) {
+    colorPickerPopup.addEventListener("click", (e) => e.stopPropagation());
+}
+
+if (colorWheel) {
+    colorWheel.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        colorWheelPointerActive = true;
+        colorWheel.setPointerCapture(e.pointerId);
+        updateColorWheelFromPointer(e);
+    });
+    colorWheel.addEventListener("pointermove", (e) => {
+        if (!colorWheelPointerActive) return;
+        e.preventDefault();
+        updateColorWheelFromPointer(e);
+    });
+    colorWheel.addEventListener("pointerup", (e) => {
+        colorWheelPointerActive = false;
+        if (colorWheel.hasPointerCapture(e.pointerId)) colorWheel.releasePointerCapture(e.pointerId);
+    });
+    colorWheel.addEventListener("pointercancel", () => {
+        colorWheelPointerActive = false;
+    });
+}
+
+if (colorValueSlider) {
+    colorValueSlider.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        colorValuePointerActive = true;
+        colorValueSlider.setPointerCapture(e.pointerId);
+        updateColorValueFromPointer(e);
+    });
+    colorValueSlider.addEventListener("pointermove", (e) => {
+        if (!colorValuePointerActive) return;
+        e.preventDefault();
+        updateColorValueFromPointer(e);
+    });
+    colorValueSlider.addEventListener("pointerup", (e) => {
+        colorValuePointerActive = false;
+        if (colorValueSlider.hasPointerCapture(e.pointerId)) colorValueSlider.releasePointerCapture(e.pointerId);
+    });
+    colorValueSlider.addEventListener("pointercancel", () => {
+        colorValuePointerActive = false;
+    });
+}
+
+if (closeColorPickerBtn) {
+    closeColorPickerBtn.addEventListener("click", closeColorPicker);
+}
+
+document.addEventListener("click", (e) => {
+    if (!colorPickerPopup || colorPickerPopup.hidden) return;
+    if (customColorBtn && customColorBtn.contains(e.target)) return;
+    if (colorPickerPopup.contains(e.target)) return;
+    closeColorPicker();
+});
+
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeColorPicker();
+});
+
+window.addEventListener("resize", positionColorPickerPopup);
 
 function hexToRgba(hex) {
     const value = hex.replace("#", "");
