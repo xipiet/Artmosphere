@@ -39,7 +39,7 @@ main {
     text-align: center;
     padding: 20px;
     box-sizing: border-box;
-    transform: translateY(-50px); /* Höhe von dem gesamten Zeug */
+    transform: translateY(-10px); /* Höhe von dem gesamten Zeug */
 }
 
 main h1 {
