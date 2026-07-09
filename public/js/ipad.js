@@ -30,6 +30,7 @@ let currentSize = 4;
 let currentTool = "draw";
 let selectedCategory = null;       // category id (string)
 let selectedCategoryDef = null;    // full category object from config
+let selectedThemeName = null;
 let facingDirection = "right";
 const undoStack = [];
 const redoStack = [];
@@ -123,6 +124,7 @@ function renderCategoryCards(categories) {
         card.addEventListener('click', () => {
             selectedCategory = cat.id;
             selectedCategoryDef = cat;
+            selectedThemeName = activeThemeName;
             enterDrawingMode();
         });
         cardsContainer.appendChild(card);
@@ -703,6 +705,9 @@ document.getElementById("back").addEventListener("click", () => {
     categoryView.style.display = 'flex';
     delete drawView.dataset.category;
     delete drawView.dataset.facing;
+    selectedCategory = null;
+    selectedCategoryDef = null;
+    selectedThemeName = null;
 });
 
 document.getElementById("clear").addEventListener("click", () => {
@@ -721,7 +726,7 @@ document.getElementById("send").addEventListener("click", () => {
     // Wait for server ack to get the sessionId BEFORE redirecting. This avoids
     // the old race where the endscreen loaded before the session was registered.
     socket.timeout(10000).emit("sendImage",
-        { dataUrl, movementType: selectedCategory, facingDirection },
+        { dataUrl, movementType: selectedCategory, themeName: selectedThemeName || activeThemeName, facingDirection },
         (err, response) => {
             sendBtn.disabled = false;
             sendBtn.textContent = "Senden";

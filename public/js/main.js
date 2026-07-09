@@ -137,6 +137,10 @@ let activeThemeName = null;
 let backgroundImageSize = null;
 const activeImages = [];
 
+function imageBelongsToActiveTheme(imageData) {
+    return imageData && imageData.themeName === activeThemeName;
+}
+
 function setThemeBackground(theme) {
     const bgUrl = `/theme-image/${encodeURIComponent(theme.image)}`;
     canvas.style.backgroundImage = `url("${bgUrl}")`;
@@ -322,6 +326,11 @@ class FloatingImage {
         return this.y + this.h * (Number.isFinite(this.visibleBottomRatio) ? this.visibleBottomRatio : 0.92);
     }
 
+    rootedFraction() {
+        const value = Number(this.category && this.category.rootFraction);
+        return Number.isFinite(value) && value > 0 && value < 1 ? value : 0.75;
+    }
+
     hasMovementPath() {
         return Array.isArray(this.category && this.category.pathPoints)
             && this.category.pathPoints.length >= 2;
@@ -432,6 +441,24 @@ class FloatingImage {
         return { yMin, yMax };
     }
 
+    rootedYBounds(rootFraction = this.rootedFraction()) {
+        const cat = this.category || {};
+        const yMinPct = Number.isFinite(Number(cat.yMinPct)) ? Number(cat.yMinPct) : 0;
+        const yMaxPct = Number.isFinite(Number(cat.yMaxPct)) ? Number(cat.yMaxPct) : 100;
+        const bg = backgroundCoverRect();
+        const rawMin = bg.y + bg.height * (Math.min(yMinPct, yMaxPct) / 100);
+        const rawMax = bg.y + bg.height * (Math.max(yMinPct, yMaxPct) / 100);
+        const visibleMaxRoot = canvas.height - this.h * (1 - rootFraction) - 2;
+        const rootMin = Math.min(rawMin, visibleMaxRoot);
+        const rootMax = Math.max(rootMin, Math.min(rawMax, visibleMaxRoot));
+        return { rootMin, rootMax };
+    }
+
+    setRootY(rootY, rootFraction = this.rootedFraction()) {
+        this.y = rootY - this.h * rootFraction;
+        this.baseY = this.y;
+    }
+
     randomSpeed() {
         const cat = this.category;
         return cat.speedMin + Math.random() * (cat.speedMax - cat.speedMin);
@@ -444,6 +471,15 @@ class FloatingImage {
         }
 
         const { xMin, xMax } = this.xBounds();
+        if (this.style === 'sway' || this.style === 'still') {
+            const rootFraction = this.rootedFraction();
+            const { rootMin, rootMax } = this.rootedYBounds(rootFraction);
+            const currentRoot = this.y + this.h * rootFraction;
+            this.x = Math.min(Math.max(this.x, xMin), xMax);
+            this.setRootY(Math.min(Math.max(currentRoot, rootMin), rootMax), rootFraction);
+            return;
+        }
+
         const { yMin, yMax } = this.yBounds();
         this.x = Math.min(Math.max(this.x, xMin), xMax);
         this.baseY = Math.min(Math.max(this.baseY, yMin), yMax);
@@ -558,6 +594,11 @@ class FloatingImage {
             this.pulseAmplitude = pulseAmpMin + Math.random() * (pulseAmpMax - pulseAmpMin);
             this.pulseSpeed = pulseSpeedMin + Math.random() * (pulseSpeedMax - pulseSpeedMin);
             this.pulsePhase = Math.random() * Math.PI * 2;
+            if (this.hasMovementPath()) {
+                this.pathProgress = this.facingDirection === 'left' ? 1 : 0;
+                this.pathDirection = this.facingDirection === 'left' ? -1 : 1;
+                this.positionOnMovementPath();
+            }
         } else if (this.style === 'ufo') {
             this.vy = 0;
             this.bubbleTrail = !!this.category.bubbleTrail;
@@ -568,22 +609,20 @@ class FloatingImage {
             this.swaySpeed = Math.random() * 0.01 + 0.008;
             this.swayAmplitude = Math.random() * 0.05 + 0.04;
             // Root (bottom of image) sits within the yMinPct..yMaxPct band.
-            // Use raw percentages (not yBounds) so tall images aren't clamped
-            // upward — their top may go off-screen but the root stays on the floor.
-            const swayRootMin = canvas.height * (this.category.yMinPct / 100);
-            const swayRootMax = canvas.height * (this.category.yMaxPct / 100);
+            // The max root is capped so the visible square cannot drop below
+            // the screen on low spawns.
+            const rootFraction = this.rootedFraction();
+            const { rootMin: swayRootMin, rootMax: swayRootMax } = this.rootedYBounds(rootFraction);
             const swayRoot = swayRootMin + Math.random() * Math.max(0, swayRootMax - swayRootMin);
-            this.y = swayRoot - this.h * 0.75;
-            this.baseY = this.y;
+            this.setRootY(swayRoot, rootFraction);
         } else if (this.style === 'still') {
             this.vx = 0;
             this.vy = 0;
             // Root (bottom of image) sits within the yMinPct..yMaxPct band.
-            const stillRootMin = canvas.height * (this.category.yMinPct / 100);
-            const stillRootMax = canvas.height * (this.category.yMaxPct / 100);
+            const rootFraction = this.rootedFraction();
+            const { rootMin: stillRootMin, rootMax: stillRootMax } = this.rootedYBounds(rootFraction);
             const stillRoot = stillRootMin + Math.random() * Math.max(0, stillRootMax - stillRootMin);
-            this.y = stillRoot - this.h * 0.75;
-            this.baseY = this.y;
+            this.setRootY(stillRoot, rootFraction);
         } else if (this.style === 'spin') {
             this.vx = 0;
             this.vy = 0;
@@ -670,7 +709,14 @@ class FloatingImage {
             const { yMin, yMax } = this.yBounds();
             if (this.y < yMin) this.y = yMin;
             if (this.y > yMax) this.y = yMax;
+        } else if (this.style === 'walk' && this.hasMovementPath()) {
+            this.updateMovementPath();
+            const walk = this.age * this.walkSpeed + this.walkPhase;
+            const hop = Math.abs(Math.sin(walk)) * this.walkBobAmplitude;
+            this.y = this.baseY - hop;
+            this.rotation = Math.sin(walk) * this.walkTiltAmplitude;
         } else if (this.style === 'walk') {
+            this.x += this.vx;
             this.bounceHorizontally();
             const walk = this.age * this.walkSpeed + this.walkPhase;
             const drift = this.driftAmplitude
@@ -681,6 +727,7 @@ class FloatingImage {
             this.y = Math.min(Math.max(y, yMin), yMax);
             this.rotation = Math.sin(walk) * this.walkTiltAmplitude;
         } else if (this.style === 'ufo') {
+            this.x += this.vx;
             this.bounceHorizontally();
             this.y = this.baseY;
         } else {
@@ -768,7 +815,7 @@ class FloatingImage {
     drawRootedImage(alpha, centerX) {
         // Pivot at 3/4 of image height: bottom quarter is "in the ground",
         // top three-quarters sway above the floor.
-        const rootFraction = 0.75;
+        const rootFraction = this.rootedFraction();
         const pivotX = centerX;
         const pivotY = this.y + this.h * rootFraction;
         ctx.save();
@@ -1099,6 +1146,8 @@ socket.on("config:changed", (config) => {
 
         // Delay ambient bubbles so they don't appear mid-screen during the transition
         if (themeName === 'unterwasser') bubbleBurstCountdown = 360;
+
+        socket.emit("main:requestAllImages");
     };
 
     if (themeChanged) {
@@ -1114,6 +1163,7 @@ socket.on("config:changed", (config) => {
 // category) — apply live without wiping the wall: pull active paintings of
 // that category into the new band and rescale their horizontal speed.
 socket.on("category:rangesChanged", ({ themeName, categoryId, xMinPct, xMaxPct, yMinPct, yMaxPct, speedMin, speedMax, scalePct }) => {
+    if (themeName !== activeThemeName) return;
     if (!themeConfig || !themeConfig.categories) return;
     const cat = themeConfig.categories.find(c => c.id === categoryId);
     if (!cat) return;
@@ -1139,8 +1189,10 @@ socket.on("admin:updateSettings", (settings) => {
     statusEl.textContent = `theme: ${themeConfig ? themeConfig.id : '?'} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
 });
 
-// Bild kommt an, mit movementType (Kategorie-ID des aktiven Themes)
-socket.on("newImage", ({ id, dataUrl, movementType, facingDirection, score }) => {
+// Bild kommt an, mit Theme + movementType (Kategorie-ID dieses Themes)
+socket.on("newImage", ({ id, dataUrl, themeName, movementType, facingDirection, score }) => {
+    if (!imageBelongsToActiveTheme({ themeName })) return;
+
     const img = new Image();
     img.onload = () => {
         const category = themeConfig && themeConfig.categories
@@ -1231,7 +1283,7 @@ if (img) {
 // Receive all current images from server (on reconnect/refresh)
 socket.on("main:allImages", ({ images }) => {
     activeImages.length = 0; // Clear current array
-    images.forEach(imageData => {
+    images.filter(imageBelongsToActiveTheme).forEach(imageData => {
         const img = new Image();
         img.onload = () => {
             const category = themeConfig && themeConfig.categories

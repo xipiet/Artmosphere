@@ -1,5 +1,5 @@
 {
-  "activeTheme": "stadt",
+  "activeTheme": "weltall",
   "themes": {
     "weltall": {
       "image": "weltall.png",
@@ -13,10 +13,10 @@
           "icon": "🌱",
           "label": "Pflanze",
           "style": "sway",
-          "xMinPct": 15,
-          "xMaxPct": 85,
-          "yMinPct": 55,
-          "yMaxPct": 100,
+          "xMinPct": 32,
+          "xMaxPct": 78,
+          "yMinPct": 66,
+          "yMaxPct": 88,
           "speedMin": 0.05,
           "speedMax": 0.1,
           "template": "/media/alien%20pflanze.svg",
@@ -27,12 +27,44 @@
           "icon": "👽",
           "label": "Lebewesen/Alien",
           "style": "walk",
-          "xMinPct": 15,
-          "xMaxPct": 85,
+          "xMinPct": 30,
+          "xMaxPct": 82,
           "yMinPct": 55,
-          "yMaxPct": 100,
-          "speedMin": 0.13,
-          "speedMax": 0.22,
+          "yMaxPct": 88,
+          "speedMin": 0.85,
+          "speedMax": 1.25,
+          "walkBobAmplitudeMin": 7,
+          "walkBobAmplitudeMax": 12,
+          "walkSpeedMin": 0.08,
+          "walkSpeedMax": 0.12,
+          "walkTiltAmplitudeMin": 0.02,
+          "walkTiltAmplitudeMax": 0.035,
+          "pathPoints": [
+            {
+              "xPct": 30,
+              "yPct": 88
+            },
+            {
+              "xPct": 38,
+              "yPct": 78
+            },
+            {
+              "xPct": 48,
+              "yPct": 71
+            },
+            {
+              "xPct": 59,
+              "yPct": 71
+            },
+            {
+              "xPct": 71,
+              "yPct": 79
+            },
+            {
+              "xPct": 82,
+              "yPct": 89
+            }
+          ],
           "template": "/media/alien.svg",
           "templateSize": "30% auto"
         },
@@ -96,18 +128,54 @@
           "yMinPct": 67,
           "yMaxPct": 100,
           "pathPoints": [
-            { "xPct": 19.5, "yPct": 85 },
-            { "xPct": 21.5, "yPct": 82 },
-            { "xPct": 23.5, "yPct": 75 },
-            { "xPct": 27, "yPct": 73 },
-            { "xPct": 48, "yPct": 73 },
-            { "xPct": 69, "yPct": 73 },
-            { "xPct": 75, "yPct": 73 },
-            { "xPct": 78, "yPct": 76 },
-            { "xPct": 81, "yPct": 83 },
-            { "xPct": 86, "yPct": 86 },
-            { "xPct": 94, "yPct": 87 },
-            { "xPct": 99, "yPct": 86 }
+            {
+              "xPct": 19.5,
+              "yPct": 85
+            },
+            {
+              "xPct": 21.5,
+              "yPct": 82
+            },
+            {
+              "xPct": 23.5,
+              "yPct": 75
+            },
+            {
+              "xPct": 27,
+              "yPct": 73
+            },
+            {
+              "xPct": 48,
+              "yPct": 73
+            },
+            {
+              "xPct": 69,
+              "yPct": 73
+            },
+            {
+              "xPct": 75,
+              "yPct": 73
+            },
+            {
+              "xPct": 78,
+              "yPct": 76
+            },
+            {
+              "xPct": 81,
+              "yPct": 83
+            },
+            {
+              "xPct": 86,
+              "yPct": 86
+            },
+            {
+              "xPct": 94,
+              "yPct": 87
+            },
+            {
+              "xPct": 99,
+              "yPct": 86
+            }
           ],
           "speedMin": 0.1,
           "speedMax": 0.15,

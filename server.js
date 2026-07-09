@@ -26,7 +26,7 @@ const SAVE_PATH = process.env.ARTMOSPHERE_SAVE_PATH
        'saved'
      );
 
-const sessionStorage = new Map(); // sessionId -> { drawingDataUrl, timestamp, movementType, facingDirection, expiresAt }
+const sessionStorage = new Map(); // sessionId -> { drawingDataUrl, timestamp, themeName, movementType, facingDirection, expiresAt }
 const SESSION_TTL_MS = 10 * 60 * 1000; // 10 min — unsaved drafts are dropped after this
 
 // In-memory, session-scoped scoreboard. Keyed by image id; each value is the
@@ -124,7 +124,7 @@ let serverSettings = {
   backgroundOpacityMax: 0.39,
   backgroundOpacityMin: 0.1
 };
-let activeImages = []; // Store active paintings { id, dataUrl, movementType, timestamp }
+let activeImages = []; // Store active paintings { id, dataUrl, themeName, movementType, timestamp }
 
 // -------------------- Load Config (Themes only) --------------------
 function loadConfig() {
@@ -326,11 +326,28 @@ io.on("connection", (socket) => {
     settings: serverSettings
   });
 
-  // iPad sends drawing + movementType. We acknowledge with the new sessionId.
+  // iPad sends drawing + theme/category. We acknowledge with the new sessionId.
   // Drawing is buffered in RAM only — nothing hits the disk until finalizeArtwork.
-  socket.on("sendImage", ({ dataUrl, movementType, facingDirection }, ack) => {
+  socket.on("sendImage", ({ dataUrl, themeName, movementType, facingDirection }, ack) => {
     if (!dataUrl || typeof dataUrl !== 'string') {
       if (typeof ack === 'function') ack({ ok: false, error: 'missing_dataUrl' });
+      return;
+    }
+    if (!movementType || typeof movementType !== 'string') {
+      if (typeof ack === 'function') ack({ ok: false, error: 'missing_movementType' });
+      return;
+    }
+
+    const requestedThemeName = typeof themeName === 'string' ? themeName : null;
+    const activeServerThemeName = serverConfig && serverConfig.activeTheme;
+    const candidateThemeNames = [requestedThemeName, activeServerThemeName].filter(Boolean);
+    const resolvedThemeName = candidateThemeNames.find(name => {
+      const theme = serverConfig && serverConfig.themes && serverConfig.themes[name];
+      return theme && Array.isArray(theme.categories) && theme.categories.some(cat => cat.id === movementType);
+    });
+
+    if (!resolvedThemeName) {
+      if (typeof ack === 'function') ack({ ok: false, error: 'invalid_theme_or_category' });
       return;
     }
 
@@ -342,13 +359,14 @@ io.on("connection", (socket) => {
     sessionStorage.set(sessionId, {
       drawingDataUrl: dataUrl,
       timestamp,
+      themeName: resolvedThemeName,
       movementType,
       facingDirection: facing,
       imageId,
       expiresAt: Date.now() + SESSION_TTL_MS
     });
 
-    console.log(`[${sessionId}] sendImage cat=${movementType} facing=${facing} bytes=${dataUrl.length}`);
+    console.log(`[${sessionId}] sendImage theme=${resolvedThemeName} cat=${movementType} facing=${facing} bytes=${dataUrl.length}`);
 
     // Acknowledge synchronously so the iPad knows the sessionId BEFORE redirecting
     if (typeof ack === 'function') ack({ ok: true, sessionId });
@@ -356,7 +374,7 @@ io.on("connection", (socket) => {
     // Persisted shape for activeImages (no sessionId — that's a one-shot signal
     // for the screenshot, not part of the floating image's identity).
     const imageData = {
-      id: imageId, dataUrl, movementType, facingDirection: facing, timestamp,
+      id: imageId, dataUrl, themeName: resolvedThemeName, movementType, facingDirection: facing, timestamp,
       score: 0,
       votes: { veryGood: 0, good: 0, bad: 0, veryBad: 0 }
     };
@@ -641,6 +659,7 @@ io.on("connection", (socket) => {
         sanitizedName,
         timestamp: sess.timestamp,
         date: new Date(sess.timestamp).toISOString(),
+        themeName: sess.themeName || null,
         movementType: sess.movementType || null,
         facingDirection: sess.facingDirection || 'right',
         hasScreenshot: !!mainCanvasBuffer,
