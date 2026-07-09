@@ -393,14 +393,14 @@ class FloatingImage {
         const bg = backgroundCoverRect();
         const zoneLeft = bg.x + bg.width * (Math.min(xMinPct, xMaxPct) / 100);
         const zoneRight = bg.x + bg.width * (Math.max(xMinPct, xMaxPct) / 100);
-        const minX = Math.max(0, zoneLeft);
-        const maxX = Math.min(canvas.width - this.w, zoneRight - this.w);
+        const xMin = Math.max(0, zoneLeft);
+        const xMax = Math.min(canvas.width - this.w, zoneRight - this.w);
 
-        if (maxX < minX) {
+        if (xMax < xMin) {
             const centeredX = Math.max(0, Math.min(canvas.width - this.w, (zoneLeft + zoneRight - this.w) / 2));
-            return { minX: centeredX, maxX: centeredX };
+            return { xMin: centeredX, xMax: centeredX };
         }
-        return { minX, maxX };
+        return { xMin, xMax };
     }
 
     bounceHorizontally() {
@@ -412,16 +412,6 @@ class FloatingImage {
             this.x = xMax;
             this.vx = -Math.abs(this.vx);
         }
-    }
-
-    xBounds() {
-        const cat = this.category;
-        const xMinPct = Number.isFinite(cat.xMinPct) ? cat.xMinPct : 0;
-        const xMaxPct = Number.isFinite(cat.xMaxPct) ? cat.xMaxPct : 100;
-        const maxX = Math.max(0, canvas.width - this.w);
-        const xMin = Math.min(Math.max(0, canvas.width * (xMinPct / 100)), maxX);
-        const xMax = Math.min(Math.max(xMin, canvas.width * (xMaxPct / 100) - this.w), maxX);
-        return { xMin, xMax };
     }
 
     yBounds() {
@@ -453,9 +443,9 @@ class FloatingImage {
             return;
         }
 
-        const { minX, maxX } = this.xBounds();
+        const { xMin, xMax } = this.xBounds();
         const { yMin, yMax } = this.yBounds();
-        this.x = Math.min(Math.max(this.x, minX), maxX);
+        this.x = Math.min(Math.max(this.x, xMin), xMax);
         this.baseY = Math.min(Math.max(this.baseY, yMin), yMax);
         this.y = this.style === 'car'
             ? this.baseY
@@ -918,8 +908,6 @@ class FloatingImage {
         }
     }
 }
-
-const activeImages = [];
 
 // -------------------- AMBIENT BUBBLES (unterwasser) --------------------
 const ambientBubbles = [];
