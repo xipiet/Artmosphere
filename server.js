@@ -249,11 +249,20 @@ app.get("/api/scoreboard", (req, res) => {
       thumb: img.dataUrl
     }));
 
-  const byScoreDesc = entries.slice().sort((a, b) => b.score - a.score || (b.timestamp || 0) - (a.timestamp || 0));
-  const byScoreAsc  = entries.slice().sort((a, b) => a.score - b.score || (b.timestamp || 0) - (a.timestamp || 0));
+  // Top = only positive balances, Flop = only negative. A net-neutral work (0)
+  // belongs in neither, and a positive work must never surface under Flop (nor a
+  // negative one under Top) just because there are fewer than `limit` rated works.
+  const top = entries
+    .filter(e => e.score > 0)
+    .sort((a, b) => b.score - a.score || (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, limit);
+  const bottom = entries
+    .filter(e => e.score < 0)
+    .sort((a, b) => a.score - b.score || (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, limit);
   res.json({
-    top: byScoreDesc.slice(0, limit),
-    bottom: byScoreAsc.slice(0, limit),
+    top,
+    bottom,
     // "Werke insgesamt" counts every live work, not just the rated subset shown
     // in the lists — the active-images count, taken before the rated-filter.
     total: activeImages.length
