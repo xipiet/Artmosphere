@@ -606,10 +606,17 @@ io.on("connection", (socket) => {
 
     // Build the final folder path (suffix-disambiguated)
     const sanitizedName = sanitizeUsername(trimmed);
-    const dateStr = new Date(sess.timestamp)
-      .toISOString()
-      .replace(/[T:]/g, '_')
-      .split('.')[0];
+    // Ordnername mit deutschem Datum (TT-MM-JJJJ_HH_MM_SS) in Europe/Berlin-
+    // Zeit. Bewusst nicht getHours() o. Ae.: der Container laeuft auf UTC, daher
+    // rechnen wir die Zeitzone hier explizit — DST-sicher (Sommer +2h, Winter +1h).
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Berlin',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(new Date(sess.timestamp));
+    const dp = (type) => parts.find((p) => p.type === type).value;
+    const dateStr = `${dp('day')}-${dp('month')}-${dp('year')}_${dp('hour')}_${dp('minute')}_${dp('second')}`;
     let finalFolderName = `${sanitizedName}_${dateStr}`;
     let finalPath = path.join(SAVE_PATH, finalFolderName);
     let suffix = 1;
