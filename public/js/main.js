@@ -2,6 +2,119 @@ const socket = io();
 const canvas = document.getElementById('mainCanvas');
 const ctx = canvas.getContext('2d');
 const statusEl = document.getElementById('status');
+const foregroundOverlay = document.getElementById('foregroundOverlay');
+const themeTransitionVideo = document.getElementById('themeTransitionVideo');
+
+function applyForegroundImage(theme) {
+    if (theme && theme.foregroundImage) {
+        foregroundOverlay.style.backgroundImage = `url("${theme.foregroundImage}")`;
+        foregroundOverlay.style.display = 'block';
+    } else {
+        foregroundOverlay.style.backgroundImage = 'none';
+        foregroundOverlay.style.display = 'none';
+    }
+}
+
+let themeTransitionHideTimeoutId = null;
+let themeTransitionCoverTimeoutId = null;
+let themeTransitionEndedHandler = null;
+let themeTransitionPlayingHandler = null;
+
+// theme.transitionVideo can be a single path (used regardless of where we're
+// coming from) or an object keyed by the previous theme's name, with an
+// optional "default" fallback, e.g. { weltall: "...", unterwasser: "...", default: "..." }.
+function resolveTransitionVideo(theme, fromThemeName) {
+    const tv = theme && theme.transitionVideo;
+    if (!tv) return null;
+    if (typeof tv === 'string') return tv;
+    return tv[fromThemeName] || tv.default || null;
+}
+
+// Plays the transition video matching (theme, fromThemeName) - if any - as a
+// fullscreen overlay. Once the video is actually covering the screen (or
+// immediately, if there's no video), calls onCovered() so the underlying
+// theme swap stays hidden behind the video.
+function playThemeTransition(theme, fromThemeName, onCovered) {
+    // Cancel any in-flight transition first
+    if (themeTransitionHideTimeoutId !== null) {
+        clearTimeout(themeTransitionHideTimeoutId);
+        themeTransitionHideTimeoutId = null;
+    }
+    if (themeTransitionCoverTimeoutId !== null) {
+        clearTimeout(themeTransitionCoverTimeoutId);
+        themeTransitionCoverTimeoutId = null;
+    }
+    if (themeTransitionEndedHandler) {
+        themeTransitionVideo.removeEventListener('ended', themeTransitionEndedHandler);
+        themeTransitionEndedHandler = null;
+    }
+    if (themeTransitionPlayingHandler) {
+        themeTransitionVideo.removeEventListener('playing', themeTransitionPlayingHandler);
+        themeTransitionPlayingHandler = null;
+    }
+    themeTransitionVideo.pause();
+    themeTransitionVideo.style.display = 'none';
+
+    const videoSrc = resolveTransitionVideo(theme, fromThemeName);
+    if (!videoSrc) {
+        if (onCovered) onCovered();
+        return;
+    }
+
+    let covered = false;
+    const cover = () => {
+        if (covered) return;
+        covered = true;
+        if (themeTransitionCoverTimeoutId !== null) {
+            clearTimeout(themeTransitionCoverTimeoutId);
+            themeTransitionCoverTimeoutId = null;
+        }
+        if (themeTransitionPlayingHandler) {
+            themeTransitionVideo.removeEventListener('playing', themeTransitionPlayingHandler);
+            themeTransitionPlayingHandler = null;
+        }
+        if (onCovered) onCovered();
+    };
+
+    const hide = () => {
+        themeTransitionVideo.style.display = 'none';
+        themeTransitionVideo.pause();
+        themeTransitionVideo.removeAttribute('src');
+        themeTransitionVideo.load();
+        if (themeTransitionHideTimeoutId !== null) {
+            clearTimeout(themeTransitionHideTimeoutId);
+            themeTransitionHideTimeoutId = null;
+        }
+        if (themeTransitionEndedHandler) {
+            themeTransitionVideo.removeEventListener('ended', themeTransitionEndedHandler);
+            themeTransitionEndedHandler = null;
+        }
+        cover(); // make sure the theme swap happens even if the video failed/ended early
+    };
+
+    themeTransitionEndedHandler = hide;
+    themeTransitionPlayingHandler = cover;
+    themeTransitionVideo.addEventListener('ended', themeTransitionEndedHandler);
+    themeTransitionVideo.addEventListener('playing', themeTransitionPlayingHandler);
+
+    themeTransitionVideo.src = videoSrc;
+    themeTransitionVideo.style.display = 'block';
+    themeTransitionVideo.currentTime = 0;
+
+    const playPromise = themeTransitionVideo.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((err) => {
+            console.warn('Theme transition video play() failed:', err);
+            hide();
+        });
+    }
+
+    // Fallback: swap the theme underneath even if 'playing' never fires quickly
+    themeTransitionCoverTimeoutId = setTimeout(cover, 1000);
+
+    // Safety: hide the overlay regardless after 5s
+    themeTransitionHideTimeoutId = setTimeout(hide, 5000);
+}
 
 const TARGET_AREA = 50000; // pixels² for normalization
 const MAX_PAINTING_SIZE = 250; // max width/height in pixels
@@ -20,6 +133,7 @@ let serverSettings = {
     backgroundOpacityMin: 0.1
 };
 let themeConfig = null;
+let activeThemeName = null;
 
 function resizeCanvas() {
 canvas.width = window.innerWidth;
@@ -44,6 +158,12 @@ class FloatingImage {
         this.rotation = 0;
         this.score = score;
 
+        // Defaults for optional per-style effects (overridden in initializeMovement)
+        this.pulseAmplitude = 0;
+        this.pulseSpeed = 0;
+        this.pulsePhase = 0;
+        this.bubbleTrail = false;
+
         this.initializeMovement();
         this.applyInitialDirection();
     }
@@ -58,24 +178,41 @@ class FloatingImage {
         return Number.isFinite(s) && s > 0 ? s / 100 : 1;
     }
 
-    get w() { return this.img.width * this.scaleFactor; }
-    get h() { return this.img.height * this.scaleFactor; }
+    // Subtle "breathing" pulse for organic-feeling creatures (1 when unused)
+    get pulseScale() {
+        if (!this.pulseAmplitude) return 1;
+        return 1 + Math.sin(this.age * this.pulseSpeed + this.pulsePhase) * this.pulseAmplitude;
+    }
+
+    get w() { return this.img.width * this.scaleFactor * this.pulseScale; }
+    get h() { return this.img.height * this.scaleFactor * this.pulseScale; }
 
     bounceHorizontally() {
-        const maxX = Math.max(0, canvas.width - this.w);
-        if (this.x <= 0) {
-            this.x = 0;
+        const { xMin, xMax } = this.xBounds();
+        if (this.x <= xMin) {
+            this.x = xMin;
             this.vx = Math.abs(this.vx);
-        } else if (this.x >= maxX) {
-            this.x = maxX;
+        } else if (this.x >= xMax) {
+            this.x = xMax;
             this.vx = -Math.abs(this.vx);
         }
     }
 
+    xBounds() {
+        const cat = this.category;
+        const xMinPct = Number.isFinite(cat.xMinPct) ? cat.xMinPct : 0;
+        const xMaxPct = Number.isFinite(cat.xMaxPct) ? cat.xMaxPct : 100;
+        const maxX = Math.max(0, canvas.width - this.w);
+        const xMin = Math.min(Math.max(0, canvas.width * (xMinPct / 100)), maxX);
+        const xMax = Math.min(Math.max(xMin, canvas.width * (xMaxPct / 100) - this.w), maxX);
+        return { xMin, xMax };
+    }
+
     yBounds() {
         const cat = this.category;
-        const yMin = canvas.height * (cat.yMinPct / 100);
-        const yMax = Math.max(yMin, canvas.height * (cat.yMaxPct / 100) - this.h);
+        const maxY = Math.max(0, canvas.height - this.h);
+        const yMin = Math.min(Math.max(0, canvas.height * (cat.yMinPct / 100)), maxY);
+        const yMax = Math.min(Math.max(yMin, canvas.height * (cat.yMaxPct / 100) - this.h), maxY);
         return { yMin, yMax };
     }
 
@@ -85,8 +222,53 @@ class FloatingImage {
     }
 
     initializeMovement() {
+        if (this.style === 'rocket') {
+            this.x = Math.random() * Math.max(0, canvas.width - this.w);
+            this.y = Math.random() * canvas.height;
+            this.vx = 0;
+            this.vy = -this.randomSpeed();
+            this.waiting = false;
+            this.waitTimer = 0;
+            return;
+        }
+
+        if (this.style === 'orbit') {
+            const cat = this.category;
+            // orbitT: 0 = sprite center at left edge, 1 = sprite center at right edge.
+            // x  = orbitT * canvas.width  (linear, guaranteed full-width span)
+            // y  = entryY − amplitude × sin(π × t)  (sine arc, peaks at t=0.5)
+            const entryYPct = Number.isFinite(cat.orbitEntryYPct) ? cat.orbitEntryYPct : 72;
+            const peakMinPct = Number.isFinite(cat.orbitPeakYPctMin) ? cat.orbitPeakYPctMin : 15;
+            const peakMaxPct = Number.isFinite(cat.orbitPeakYPctMax) ? cat.orbitPeakYPctMax : 28;
+            const peakYPct = peakMinPct + Math.random() * Math.max(0, peakMaxPct - peakMinPct);
+            this.orbitEntryY = entryYPct / 100 * canvas.height;
+            this.orbitPeakY  = peakYPct  / 100 * canvas.height;
+            this.orbitDirection = Math.random() < 0.5 ? 1 : -1; // +1 L→R, −1 R→L
+            const sMin = Number.isFinite(cat.speedMin) ? cat.speedMin : 0.003;
+            const sMax = Number.isFinite(cat.speedMax) ? cat.speedMax : 0.007;
+            this.orbitSpeed = sMin + Math.random() * Math.max(0, sMax - sMin);
+            this.orbitWaiting = false;
+            this.orbitWaitTimer = 0;
+            // ot: how far past the screen edge (in t-units) the sprite starts
+            const ot = (this.w / 2 + 20) / canvas.width;
+            this.orbitT = this.orbitDirection > 0 ? -ot : 1 + ot;
+            this.vx = canvas.width * this.orbitSpeed * this.orbitDirection;
+            const rawSt = this.orbitDirection > 0 ? this.orbitT : 1 - this.orbitT;
+            const st = (rawSt + ot) / (1 + 2 * ot);
+            this.x = this.orbitT * canvas.width - this.w / 2;
+            this.y = this.orbitEntryY - (this.orbitEntryY - this.orbitPeakY) * Math.sin(Math.PI * st) - this.h / 2;
+            return;
+        }
+
         const { yMin, yMax } = this.yBounds();
-        this.x = Math.random() * Math.max(0, canvas.width - this.w);
+        const { xMin, xMax } = this.xBounds();
+        if (this.style === 'walk' || this.style === 'ufo') {
+            // Enter from the edge matching the chosen facing direction, so the
+            // very first pass already goes all the way across before bouncing.
+            this.x = this.facingDirection === 'left' ? xMax : xMin;
+        } else {
+            this.x = xMin + Math.random() * Math.max(0, xMax - xMin);
+        }
         this.baseY = yMin + Math.random() * Math.max(0, yMax - yMin);
         this.y = this.baseY;
         this.vx = this.randomSpeed() * (Math.random() < 0.5 ? 1 : -1);
@@ -111,6 +293,68 @@ class FloatingImage {
             this.bobAmplitude = Math.random() * 7 + 5;
             this.driftAmplitude = Math.random() * 18 + 10;
             this.rollAmplitude = Math.random() * 0.035 + 0.025;
+        } else if (this.style === 'walk') {
+            this.vy = 0;
+            this.walkPhase = Math.random() * Math.PI * 2;
+            const cat = this.category;
+            const walkSpeedMin = Number.isFinite(cat.walkSpeedMin) ? cat.walkSpeedMin : 0.05;
+            const walkSpeedMax = Number.isFinite(cat.walkSpeedMax) ? cat.walkSpeedMax : 0.07;
+            const walkBobMin = Number.isFinite(cat.walkBobAmplitudeMin) ? cat.walkBobAmplitudeMin : 2;
+            const walkBobMax = Number.isFinite(cat.walkBobAmplitudeMax) ? cat.walkBobAmplitudeMax : 4;
+            const walkTiltMin = Number.isFinite(cat.walkTiltAmplitudeMin) ? cat.walkTiltAmplitudeMin : 0.012;
+            const walkTiltMax = Number.isFinite(cat.walkTiltAmplitudeMax) ? cat.walkTiltAmplitudeMax : 0.022;
+            this.walkSpeed = walkSpeedMin + Math.random() * (walkSpeedMax - walkSpeedMin);
+            this.walkBobAmplitude = walkBobMin + Math.random() * (walkBobMax - walkBobMin);
+            this.walkTiltAmplitude = walkTiltMin + Math.random() * (walkTiltMax - walkTiltMin);
+
+            // Optional slow vertical drift, on top of the walk-bob, for a more
+            // organic swimming path. Off by default (0/0 -> no drift).
+            const driftAmpMin = Number.isFinite(cat.driftAmplitudeMin) ? cat.driftAmplitudeMin : 0;
+            const driftAmpMax = Number.isFinite(cat.driftAmplitudeMax) ? cat.driftAmplitudeMax : 0;
+            const driftSpeedMin = Number.isFinite(cat.driftSpeedMin) ? cat.driftSpeedMin : 0.004;
+            const driftSpeedMax = Number.isFinite(cat.driftSpeedMax) ? cat.driftSpeedMax : 0.009;
+            this.driftAmplitude = driftAmpMin + Math.random() * (driftAmpMax - driftAmpMin);
+            this.driftSpeed = driftSpeedMin + Math.random() * (driftSpeedMax - driftSpeedMin);
+            this.driftPhase = Math.random() * Math.PI * 2;
+
+            // Optional gentle "breathing" size pulse. Off by default (0/0 -> no pulse).
+            const pulseAmpMin = Number.isFinite(cat.pulseAmplitudeMin) ? cat.pulseAmplitudeMin : 0;
+            const pulseAmpMax = Number.isFinite(cat.pulseAmplitudeMax) ? cat.pulseAmplitudeMax : 0;
+            const pulseSpeedMin = Number.isFinite(cat.pulseSpeedMin) ? cat.pulseSpeedMin : 0.03;
+            const pulseSpeedMax = Number.isFinite(cat.pulseSpeedMax) ? cat.pulseSpeedMax : 0.06;
+            this.pulseAmplitude = pulseAmpMin + Math.random() * (pulseAmpMax - pulseAmpMin);
+            this.pulseSpeed = pulseSpeedMin + Math.random() * (pulseSpeedMax - pulseSpeedMin);
+            this.pulsePhase = Math.random() * Math.PI * 2;
+        } else if (this.style === 'ufo') {
+            this.vy = 0;
+            this.bubbleTrail = !!this.category.bubbleTrail;
+        } else if (this.style === 'sway') {
+            this.vx = 0;
+            this.vy = 0;
+            this.swayPhase = Math.random() * Math.PI * 2;
+            this.swaySpeed = Math.random() * 0.01 + 0.008;
+            this.swayAmplitude = Math.random() * 0.05 + 0.04;
+            // Root (bottom of image) sits within the yMinPct..yMaxPct band.
+            // Use raw percentages (not yBounds) so tall images aren't clamped
+            // upward — their top may go off-screen but the root stays on the floor.
+            const swayRootMin = canvas.height * (this.category.yMinPct / 100);
+            const swayRootMax = canvas.height * (this.category.yMaxPct / 100);
+            const swayRoot = swayRootMin + Math.random() * Math.max(0, swayRootMax - swayRootMin);
+            this.y = swayRoot - this.h * 0.75;
+            this.baseY = this.y;
+        } else if (this.style === 'still') {
+            this.vx = 0;
+            this.vy = 0;
+            // Root (bottom of image) sits within the yMinPct..yMaxPct band.
+            const stillRootMin = canvas.height * (this.category.yMinPct / 100);
+            const stillRootMax = canvas.height * (this.category.yMaxPct / 100);
+            const stillRoot = stillRootMin + Math.random() * Math.max(0, stillRootMax - stillRootMin);
+            this.y = stillRoot - this.h * 0.75;
+            this.baseY = this.y;
+        } else if (this.style === 'spin') {
+            this.vx = 0;
+            this.vy = 0;
+            this.spinSpeed = (Math.random() * 0.0015 + 0.0008) * (Math.random() < 0.5 ? 1 : -1);
         } else {
             // 'pedestrian' or 'plain': straight horizontal
             this.vy = 0;
@@ -119,6 +363,70 @@ class FloatingImage {
 
     update() {
         this.age += 1;
+
+        if (this.style === 'rocket') {
+            if (this.waiting) {
+                this.waitTimer -= 1;
+                if (this.waitTimer <= 0) {
+                    this.waiting = false;
+                    this.x = Math.random() * Math.max(0, canvas.width - this.w);
+                    this.y = canvas.height;
+                    this.vy = -this.randomSpeed();
+                }
+            } else {
+                this.y += this.vy;
+                if (this.y + this.h < 0) {
+                    this.waiting = true;
+                    this.waitTimer = Math.floor(Math.random() * 90) + 60; // ~1-2.5s @ 60fps
+                }
+            }
+            return this.updateFade();
+        }
+
+        if (this.style === 'sway') {
+            this.rotation = Math.sin(this.age * this.swaySpeed + this.swayPhase) * this.swayAmplitude;
+            return this.updateFade();
+        }
+
+        if (this.style === 'still') {
+            return this.updateFade();
+        }
+
+        if (this.style === 'spin') {
+            this.rotation += this.spinSpeed;
+            return this.updateFade();
+        }
+
+        if (this.style === 'orbit') {
+            if (this.orbitWaiting) {
+                this.orbitWaitTimer -= 1;
+                if (this.orbitWaitTimer <= 0) {
+                    this.orbitWaiting = false;
+                    const ot = (this.w / 2 + 20) / canvas.width;
+                    this.orbitT = this.orbitDirection > 0 ? -ot : 1 + ot;
+                }
+            } else {
+                this.orbitT += this.orbitSpeed * this.orbitDirection;
+                this.vx = canvas.width * this.orbitSpeed * this.orbitDirection;
+                const ot = (this.w / 2 + 20) / canvas.width;
+                const rawSt = this.orbitDirection > 0 ? this.orbitT : 1 - this.orbitT;
+                // st spans 0→1 over the full traversal incl. off-screen overshoot on both sides,
+                // so the arc is already curving when the sprite first peeks into the visible area.
+                const st = (rawSt + ot) / (1 + 2 * ot);
+                this.x = this.orbitT * canvas.width - this.w / 2;
+                this.y = this.orbitEntryY - (this.orbitEntryY - this.orbitPeakY) * Math.sin(Math.PI * st) - this.h / 2;
+                if ((this.orbitDirection > 0 && this.orbitT > 1 + ot) ||
+                    (this.orbitDirection < 0 && this.orbitT < -ot)) {
+                    this.orbitWaiting = true;
+                    const cat = this.category;
+                    const waitMin = Number.isFinite(cat.orbitWaitMinFrames) ? cat.orbitWaitMinFrames : 120;
+                    const waitMax = Number.isFinite(cat.orbitWaitMaxFrames) ? cat.orbitWaitMaxFrames : 300;
+                    this.orbitWaitTimer = Math.floor(waitMin + Math.random() * Math.max(0, waitMax - waitMin));
+                }
+            }
+            return this.updateFade();
+        }
+
         this.x += this.vx;
 
         if (this.style === 'pedestrian' || this.style === 'plain') {
@@ -127,6 +435,19 @@ class FloatingImage {
             const { yMin, yMax } = this.yBounds();
             if (this.y < yMin) this.y = yMin;
             if (this.y > yMax) this.y = yMax;
+        } else if (this.style === 'walk') {
+            this.bounceHorizontally();
+            const walk = this.age * this.walkSpeed + this.walkPhase;
+            const drift = this.driftAmplitude
+                ? Math.sin(this.age * this.driftSpeed + this.driftPhase) * this.driftAmplitude
+                : 0;
+            const { yMin, yMax } = this.yBounds();
+            const y = this.baseY + drift - Math.abs(Math.sin(walk)) * this.walkBobAmplitude;
+            this.y = Math.min(Math.max(y, yMin), yMax);
+            this.rotation = Math.sin(walk) * this.walkTiltAmplitude;
+        } else if (this.style === 'ufo') {
+            this.bounceHorizontally();
+            this.y = this.baseY;
         } else {
             // Animated styles share a common base-band drift + sinusoidal motion
             this.bounceHorizontally();
@@ -169,6 +490,10 @@ class FloatingImage {
             }
         }
 
+        this.updateFade();
+    }
+
+    updateFade() {
         const shouldFadeAll = serverSettings.galleryMode === 'fade';
         if (shouldFadeAll || this.isFading) {
             const prevFade = this.fadeAlpha;
@@ -205,7 +530,46 @@ class FloatingImage {
         ctx.restore();
     }
 
+    drawRootedImage(alpha, centerX) {
+        // Pivot at 3/4 of image height: bottom quarter is "in the ground",
+        // top three-quarters sway above the floor.
+        const rootFraction = 0.75;
+        const pivotX = centerX;
+        const pivotY = this.y + this.h * rootFraction;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(pivotX, pivotY);
+        ctx.rotate(this.rotation);
+        ctx.drawImage(this.img, -this.w / 2, -this.h * rootFraction, this.w, this.h);
+        ctx.restore();
+    }
+
+    // Small rising/fading bubbles trailing behind a vehicle (opposite of its
+    // movement direction), for a "powered, mechanical" underwater feel.
+    // Anchored to the vehicle's own center with a small fixed rise, so the
+    // trail stays attached to it regardless of its size (scalePct).
+    drawBubbleTrail(alpha, centerX, centerY) {
+        const direction = this.vx >= 0 ? -1 : 1;
+        const cycle = 90; // frames per bubble cycle
+        const riseDistance = 60; // px the bubbles travel before fading out
+        ctx.save();
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        for (let i = 0; i < 4; i++) {
+            const t = ((this.age + i * (cycle / 4)) % cycle) / cycle; // 0..1
+            const bx = centerX + direction * this.w * 0.4 + Math.sin(this.age * 0.12 + i * 1.7) * 5;
+            const by = centerY + 10 - t * riseDistance;
+            const r = 1.5 + t * 2.5;
+            ctx.globalAlpha = alpha * 0.5 * (1 - t);
+            ctx.beginPath();
+            ctx.arc(bx, by, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
     draw() {
+        if (this.style === 'rocket' && this.waiting) return;
+
         const alpha = this.layerAlpha * this.fadeAlpha;
         const centerX = this.x + this.w / 2;
         const centerY = this.y + this.h / 2;
@@ -269,7 +633,12 @@ class FloatingImage {
             }
             ctx.restore();
             this.drawDirectionalImage(alpha, centerX, centerY);
-        } else if (this.style === 'pedestrian') {
+        } else if (this.style === 'ufo' && this.bubbleTrail) {
+            this.drawBubbleTrail(alpha, centerX, centerY);
+            this.drawDirectionalImage(alpha, centerX, centerY);
+        } else if (this.style === 'sway' || this.style === 'still') {
+            this.drawRootedImage(alpha, centerX);
+        } else if (this.style === 'pedestrian' || this.style === 'walk' || this.style === 'ufo' || this.style === 'spin' || this.style === 'orbit') {
             this.drawDirectionalImage(alpha, centerX, centerY);
         } else {
             ctx.globalAlpha = alpha;
@@ -280,6 +649,61 @@ class FloatingImage {
 }
 
 const activeImages = [];
+
+// -------------------- AMBIENT BUBBLES (unterwasser) --------------------
+const ambientBubbles = [];
+let bubbleBurstCountdown = 180;
+
+function spawnBubbleBurst() {
+    const count = 10 + Math.floor(Math.random() * 15);
+    for (let i = 0; i < count; i++) {
+        ambientBubbles.push({
+            x: Math.random() * canvas.width,
+            y: canvas.height + Math.random() * 40,
+            r: 3 + Math.random() * 14,
+            speed: 0.7 + Math.random() * 2.0,
+            drift: (Math.random() - 0.5) * 0.9,
+            alpha: 0.25 + Math.random() * 0.35,
+            wobblePhase: Math.random() * Math.PI * 2,
+            wobbleSpeed: 0.025 + Math.random() * 0.035,
+        });
+    }
+    bubbleBurstCountdown = 180 + Math.floor(Math.random() * 360);
+}
+
+function updateAndDrawAmbientBubbles() {
+    if (activeThemeName !== 'unterwasser') {
+        ambientBubbles.length = 0;
+        return;
+    }
+
+    bubbleBurstCountdown--;
+    if (bubbleBurstCountdown <= 0) spawnBubbleBurst();
+
+    for (let i = ambientBubbles.length - 1; i >= 0; i--) {
+        const b = ambientBubbles[i];
+        b.y -= b.speed;
+        b.x += Math.sin(b.wobblePhase) * b.drift;
+        b.wobblePhase += b.wobbleSpeed;
+
+        if (b.y + b.r < 0) { ambientBubbles.splice(i, 1); continue; }
+
+        const fadeTop = canvas.height * 0.12;
+        const alpha = Math.max(0, b.y < fadeTop ? b.alpha * (b.y / fadeTop) : b.alpha);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = 'rgba(180, 220, 255, 0.85)';
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.globalAlpha = alpha * 0.18;
+        ctx.fillStyle = 'rgba(220, 240, 255, 1)';
+        ctx.fill();
+        ctx.restore();
+    }
+}
 
 // -------------------- LAYER DISTRIBUTION --------------------
 function redistributeLayers() {
@@ -351,6 +775,8 @@ function animate() {
         });
     });
 
+    updateAndDrawAmbientBubbles();
+
     requestAnimationFrame(animate);
 }
 animate();
@@ -380,6 +806,7 @@ socket.on("app:init", (d) => {
     const themeName = config.activeTheme;
     const theme = config.themes[themeName];
     themeConfig = theme;
+    activeThemeName = themeName;
     activeImages.length = 0; // Clear previous images
 
     statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
@@ -387,6 +814,7 @@ socket.on("app:init", (d) => {
     // Hintergrund laden
     const bgUrl = `/theme-image/${encodeURIComponent(theme.image)}`;
     canvas.style.backgroundImage = `url("${bgUrl}")`;
+    applyForegroundImage(theme);
 
     // Request all current images from server
     socket.emit("main:requestAllImages");
@@ -396,12 +824,30 @@ socket.on("app:init", (d) => {
 socket.on("config:changed", (config) => {
     const themeName = config.activeTheme;
     const theme = config.themes[themeName];
-    themeConfig = theme;
-    activeImages.length = 0; // Clear active images
+    const previousThemeName = activeThemeName;
+    const themeChanged = themeName !== activeThemeName;
 
-    statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
+    const applyTheme = () => {
+        themeConfig = theme;
+        activeThemeName = themeName;
+        activeImages.length = 0;
 
-    canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.image)}")`;
+        statusEl.textContent = `theme: ${themeName} | fade: ${serverSettings.galleryMode === 'fade' ? 'ON' : 'OFF'}`;
+
+        canvas.style.backgroundImage = `url("/theme-image/${encodeURIComponent(theme.image)}")`;
+        applyForegroundImage(theme);
+
+        // Delay ambient bubbles so they don't appear mid-screen during the transition
+        if (themeName === 'unterwasser') bubbleBurstCountdown = 360;
+    };
+
+    if (themeChanged) {
+        // Preload the next background so it's cached when the video ends
+        new Image().src = `/theme-image/${encodeURIComponent(theme.image)}`;
+        playThemeTransition(theme, previousThemeName, applyTheme);
+    } else {
+        applyTheme();
+    }
 });
 
 // CATEGORY RANGES CHANGED (admin tuned yMin/yMax/speedMin/speedMax for one
@@ -418,6 +864,7 @@ socket.on("category:rangesChanged", ({ themeName, categoryId, yMinPct, yMaxPct, 
     if (Number.isFinite(scalePct)) cat.scalePct = scalePct;
     activeImages.forEach(fi => {
         if (!fi.category || fi.category.id !== categoryId) return;
+        if (fi.style === 'rocket') return;
         const { yMin, yMax } = fi.yBounds();
         fi.baseY = Math.min(Math.max(fi.baseY, yMin), yMax);
         fi.y = fi.baseY;
@@ -444,13 +891,15 @@ socket.on("newImage", ({ id, dataUrl, movementType, facingDirection, score }) =>
             return;
         }
 
-        let finalImg = img;
-        
+        const addImage = (finalImg) => {
+            activeImages.push(new FloatingImage(id, finalImg, category, facingDirection, score));
+        };
+
         // Normalize size if enabled
         if (serverSettings.normalizeSize) {
             const aspectRatio = img.width / img.height;
             let newWidth, newHeight;
-            
+
             // Scale to fit within MAX_PAINTING_SIZE, preserving aspect ratio
             if (aspectRatio > 1) {
                 // Wider than tall
@@ -461,26 +910,30 @@ socket.on("newImage", ({ id, dataUrl, movementType, facingDirection, score }) =>
                 newHeight = MAX_PAINTING_SIZE;
                 newWidth = MAX_PAINTING_SIZE * aspectRatio;
             }
-            
+
             // Create canvas with max size, center the image (letterbox style)
             const tempCanvas = document.createElement('canvas');
             tempCanvas.width = MAX_PAINTING_SIZE;
             tempCanvas.height = MAX_PAINTING_SIZE;
             const tempCtx = tempCanvas.getContext('2d');
-            
+
             // Fill with transparent background
             tempCtx.clearRect(0, 0, MAX_PAINTING_SIZE, MAX_PAINTING_SIZE);
-            
+
             // Center the image
             const x = (MAX_PAINTING_SIZE - newWidth) / 2;
             const y = (MAX_PAINTING_SIZE - newHeight) / 2;
             tempCtx.drawImage(img, x, y, newWidth, newHeight);
-            
-            finalImg = new Image();
+
+            // Wait for the scaled image to fully load before constructing
+            // FloatingImage — otherwise img.height = 0 at init time, which
+            // breaks sway/still positioning (this.y is set only once).
+            const finalImg = new Image();
+            finalImg.onload = () => addImage(finalImg);
             finalImg.src = tempCanvas.toDataURL();
+        } else {
+            addImage(img);
         }
-        
-        activeImages.push(new FloatingImage(id, finalImg, category, facingDirection, score));
     };
     img.src = dataUrl;
 });
@@ -529,13 +982,15 @@ socket.on("main:allImages", ({ images }) => {
                 return;
             }
 
-            let finalImg = img;
-            
+            const addImage = (finalImg) => {
+                activeImages.push(new FloatingImage(imageData.id, finalImg, category, imageData.facingDirection, imageData.score));
+            };
+
             // Normalize size if enabled
             if (serverSettings.normalizeSize) {
                 const aspectRatio = img.width / img.height;
                 let newWidth, newHeight;
-                
+
                 if (aspectRatio > 1) {
                     newWidth = MAX_PAINTING_SIZE;
                     newHeight = MAX_PAINTING_SIZE / aspectRatio;
@@ -543,23 +998,24 @@ socket.on("main:allImages", ({ images }) => {
                     newHeight = MAX_PAINTING_SIZE;
                     newWidth = MAX_PAINTING_SIZE * aspectRatio;
                 }
-                
+
                 const tempCanvas = document.createElement('canvas');
                 tempCanvas.width = MAX_PAINTING_SIZE;
                 tempCanvas.height = MAX_PAINTING_SIZE;
                 const tempCtx = tempCanvas.getContext('2d');
-                
+
                 tempCtx.clearRect(0, 0, MAX_PAINTING_SIZE, MAX_PAINTING_SIZE);
-                
+
                 const x = (MAX_PAINTING_SIZE - newWidth) / 2;
                 const y = (MAX_PAINTING_SIZE - newHeight) / 2;
                 tempCtx.drawImage(img, x, y, newWidth, newHeight);
-                
-                finalImg = new Image();
+
+                const finalImg = new Image();
+                finalImg.onload = () => addImage(finalImg);
                 finalImg.src = tempCanvas.toDataURL();
+            } else {
+                addImage(img);
             }
-            
-            activeImages.push(new FloatingImage(imageData.id, finalImg, category, imageData.facingDirection, imageData.score));
         };
         img.src = imageData.dataUrl;
     });
