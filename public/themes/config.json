@@ -1,5 +1,5 @@
 {
-  "activeTheme": "weltall",
+  "activeTheme": "stadt",
   "themes": {
     "weltall": {
       "image": "weltall.png",
@@ -166,15 +166,15 @@
             },
             {
               "xPct": 86,
-              "yPct": 86
+              "yPct": 84
             },
             {
               "xPct": 94,
-              "yPct": 87
+              "yPct": 83.5
             },
             {
               "xPct": 99,
-              "yPct": 86
+              "yPct": 83.5
             }
           ],
           "speedMin": 0.1,
