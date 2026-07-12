@@ -52,6 +52,11 @@
           <div class="color-btn" data-color="#00cc44" style="background:#00cc44"></div>
           <div class="color-btn" data-color="#ff9900" style="background:#ff9900"></div>
           <div class="color-btn" data-color="#ffffff" style="background:#ffffff; border:2px solid #888"></div>
+          <div id="customColorPicker" class="custom-color-picker">
+            <button id="customColorBtn" class="color-picker-toggle" type="button" aria-label="Eigene Farbe wählen" aria-expanded="false">
+              <span id="customColorPreview" aria-hidden="true"></span>
+            </button>
+          </div>
         </div>
         <div id="stroke-slider">
           <label for="sizeSlider" aria-label="Stiftgröße">✏️</label>
@@ -69,6 +74,19 @@
         <div id="directionPicker" aria-label="Start-Fahrtrichtung">
           <button class="direction-btn active" type="button" data-facing="right">→</button>
           <button class="direction-btn" type="button" data-facing="left">←</button>
+        </div>
+      </div>
+
+      <div id="colorPickerPopup" class="color-picker-popup" role="dialog" aria-label="Eigene Farbe wählen" hidden>
+        <label>Eigene Farbe</label>
+        <canvas id="colorWheel" class="color-wheel" width="180" height="180" aria-label="Farbrad"></canvas>
+        <div class="color-value-row">
+          <span>Hell</span>
+          <canvas id="colorValueSlider" class="color-value-slider" width="180" height="24" aria-label="Helligkeit"></canvas>
+        </div>
+        <div class="color-picker-actions">
+          <span id="freeColorValue">#000000</span>
+          <button id="closeColorPicker" type="button">OK</button>
         </div>
       </div>
 
@@ -90,8 +108,8 @@
         <button class="modal-close">&times;</button>
         <h2>Wie funktioniert es?</h2>
         <p>Du befindest dich jetzt in der kreativen Zone unserer Artmosphere Installation. Das Thema dieses Raums ist eine <span id="themeName">Atmosphäre</span>.</p>
-        <p>Wähle zuerst eine Kategorie: Fußgänger, Auto, Flugzeug oder Wasserverkehr. Dann gelangst du zu einer Zeichenfläche, auf der du dein eigenes Kunstwerk malen kannst.</p>
-        <p>Deine Zeichnung wird anschließend in den echten Raum projiziert und bewegt sich je nach gewählter Kategorie: Fußgänger gehen, Autos fahren, Flugzeuge fliegen, Boote und Jetskis fahren durchs Wasser!</p>
+        <p>Wähle zuerst eine der Kategorien aus. Dann gelangst du zu einer Zeichenfläche, auf der du dein eigenes Kunstwerk malen kannst.</p>
+        <p>Deine Zeichnung wird anschließend in den echten Raum projiziert und bewegt sich passend zur gewählten Kategorie durch die Szene!</p>
         <p>Viel Spaß dabei, deiner Fantasie freien Lauf zu lassen!</p>
       </div>
     </div>

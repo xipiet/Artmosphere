@@ -232,6 +232,7 @@ canvas#bgCanvas {
     background: rgba(255,255,255,0.04);
     border: 1px solid rgba(255,255,255,0.10);
     border-radius: 12px;
+    align-items: center;
 }
 
 .color-btn {
@@ -254,6 +255,124 @@ canvas#bgCanvas {
 
 .color-btn:active {
     transform: scale(0.94);
+}
+
+.custom-color-picker {
+    position: relative;
+}
+
+.color-picker-toggle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    cursor: pointer;
+    padding: 0;
+    background: conic-gradient(red, yellow, lime, cyan, blue, magenta, red);
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.2);
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+    display: grid;
+    place-items: center;
+}
+
+.color-picker-toggle:hover {
+    transform: translateY(-2px) scale(1.04);
+}
+
+.color-picker-toggle:active {
+    transform: scale(0.94);
+}
+
+.color-picker-toggle.active {
+    box-shadow: 0 0 0 3px #c86cff;
+}
+
+#customColorPreview {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #000;
+    border: 2px solid rgba(255,255,255,0.95);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.45);
+}
+
+.color-picker-popup {
+    position: fixed;
+    z-index: 250;
+    width: 238px;
+    padding: 16px;
+    color: #fff;
+    background: rgba(18, 18, 28, 0.96);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 16px;
+    box-shadow: 0 18px 45px rgba(0,0,0,0.42), 0 0 24px rgba(180,0,255,0.26);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+.color-picker-popup[hidden] {
+    display: none;
+}
+
+.color-picker-popup label {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.color-wheel {
+    display: block;
+    width: 180px;
+    height: 180px;
+    margin: 0 auto;
+    border-radius: 50%;
+    cursor: crosshair;
+    touch-action: none;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.16), 0 8px 24px rgba(0,0,0,0.32);
+}
+
+.color-value-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    color: rgba(255,255,255,0.78);
+    font-size: 0.86rem;
+}
+
+.color-value-slider {
+    display: block;
+    width: 180px;
+    height: 24px;
+    border-radius: 999px;
+    cursor: ew-resize;
+    touch-action: none;
+    box-shadow: 0 0 0 2px rgba(255,255,255,0.14), 0 4px 14px rgba(0,0,0,0.24);
+}
+
+.color-picker-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+#freeColorValue {
+    font-family: monospace;
+    font-size: 0.92rem;
+    color: rgba(255,255,255,0.82);
+}
+
+#closeColorPicker {
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 999px;
+    padding: 7px 14px;
+    color: #fff;
+    background: rgba(180,0,255,0.35);
+    cursor: pointer;
 }
 
 #stroke-slider {

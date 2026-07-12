@@ -26,17 +26,9 @@ const SAVE_PATH = process.env.ARTMOSPHERE_SAVE_PATH
        'saved'
      );
 
-const sessionStorage = new Map(); // sessionId -> { drawingDataUrl, timestamp, movementType, facingDirection, expiresAt }
+const sessionStorage = new Map(); // sessionId -> { drawingDataUrl, timestamp, themeName, movementType, facingDirection, expiresAt }
 const SESSION_TTL_MS = 10 * 60 * 1000; // 10 min — unsaved drafts are dropped after this
 
-// In-memory, session-scoped scoreboard. Keyed by image id; each value is the
-// SAME object that lives in activeImages, so Kritiker score/vote mutations are
-// reflected here automatically — no save required. Entries are NOT pruned when
-// an image leaves the wall (fade/cap/drop): the board shows every work created
-// this session, saved or not. Cleared on restart (it's just RAM), which gives
-// the per-session reset for free. Grows with drawings/session — fine for an
-// event-length run.
-const scoreboardRegistry = new Map(); // imageId -> activeImages entry
 
 try {
   fs.mkdirSync(SAVE_PATH, { recursive: true });
@@ -124,7 +116,7 @@ let serverSettings = {
   backgroundOpacityMax: 0.39,
   backgroundOpacityMin: 0.1
 };
-let activeImages = []; // Store active paintings { id, dataUrl, movementType, timestamp }
+let activeImages = []; // Store active paintings { id, dataUrl, themeName, movementType, timestamp }
 
 // -------------------- Load Config (Themes only) --------------------
 function loadConfig() {
@@ -160,6 +152,30 @@ function saveConfig() {
 function saveSettings() {
   fs.writeFileSync(settingsPath, JSON.stringify(serverSettings, null, 2), "utf8");
   console.log("Settings saved.");
+}
+
+// Apply a new theme config from the Admin. When the active theme changes, the
+// old theme's drawings are no longer shown on the wall (main.js filters by
+// themeName), so drop them from server state too — otherwise they live on as
+// ghosts in Admin, Kritiker and the Scoreboard. activeImages is the single
+// source of truth: pruning it here keeps all three surfaces consistent.
+function applyConfig(newConfig) {
+  const prevTheme = serverConfig && serverConfig.activeTheme;
+  serverConfig = newConfig;
+  saveConfig();
+
+  const nextTheme = serverConfig && serverConfig.activeTheme;
+  if (nextTheme !== prevTheme) {
+    const stale = activeImages.filter(img => img.themeName !== nextTheme);
+    if (stale.length) {
+      activeImages = activeImages.filter(img => img.themeName === nextTheme);
+      stale.forEach(img => io.emit("admin:removeImageFromMain", img.id));
+      io.emit("admin:updateGallery", activeImages);
+      console.log(`Theme ${prevTheme} → ${nextTheme}: dropped ${stale.length} stale painting(s).`);
+    }
+  }
+
+  io.emit("config:changed", serverConfig);
 }
 
 // ----------------------------------
@@ -207,29 +223,49 @@ app.get("/scoreboard", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "scoreboard.html"));
 });
 
-// Scoreboard data: ranks the in-memory session registry — every artwork created
-// since this server start, SAVED OR NOT. Voting mutates these same objects, so
-// scores are live without requiring a save; the board is session-scoped because
-// the registry is RAM-only.
+// Scoreboard data: ranks the live activeImages — exactly the works currently on
+// the server (same set Admin and Kritiker see). A work leaves the board the
+// moment it leaves activeImages (theme switch, cap overflow, admin remove, fade).
+// Voting mutates these same objects, so scores are live without requiring a save.
 app.get("/api/scoreboard", (req, res) => {
   const limit = Math.max(1, Math.min(50, Number(req.query.limit) || 10));
-  const entries = Array.from(scoreboardRegistry.values()).map(img => ({
-    name: img.name || 'Anonym',
-    score: Number(img.score) || 0,
-    votes: img.votes || { veryGood: 0, good: 0, bad: 0, veryBad: 0 },
-    timestamp: img.timestamp || null,
-    // The drawing lives in memory as a dataUrl — usable directly as <img src>.
-    // Unsaved works have no file on disk, so this is the only thumbnail source
-    // (and it stays correct after the image fades off the wall).
-    thumb: img.dataUrl
-  }));
+  const entries = activeImages
+    // Only works the Kritiker has actually rated belong on the board. Filtering
+    // by score would be wrong: a fresh work and a work rated to a net-zero
+    // balance (e.g. 1× sehr gut + 1× sehr schlecht) both have score 0. So we
+    // key off the vote COUNT — a work counts as rated once any button was hit.
+    .filter(img => {
+      const v = img.votes;
+      return v && ((v.veryGood || 0) + (v.good || 0) + (v.bad || 0) + (v.veryBad || 0)) > 0;
+    })
+    .map(img => ({
+      name: img.name || 'Anonym',
+      score: Number(img.score) || 0,
+      votes: img.votes || { veryGood: 0, good: 0, bad: 0, veryBad: 0 },
+      timestamp: img.timestamp || null,
+      // The drawing lives in memory as a dataUrl — usable directly as <img src>.
+      // Unsaved works have no file on disk, so this is the only thumbnail source
+      // (and it stays correct after the image fades off the wall).
+      thumb: img.dataUrl
+    }));
 
-  const byScoreDesc = entries.slice().sort((a, b) => b.score - a.score || (b.timestamp || 0) - (a.timestamp || 0));
-  const byScoreAsc  = entries.slice().sort((a, b) => a.score - b.score || (b.timestamp || 0) - (a.timestamp || 0));
+  // Top = only positive balances, Flop = only negative. A net-neutral work (0)
+  // belongs in neither, and a positive work must never surface under Flop (nor a
+  // negative one under Top) just because there are fewer than `limit` rated works.
+  const top = entries
+    .filter(e => e.score > 0)
+    .sort((a, b) => b.score - a.score || (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, limit);
+  const bottom = entries
+    .filter(e => e.score < 0)
+    .sort((a, b) => a.score - b.score || (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, limit);
   res.json({
-    top: byScoreDesc.slice(0, limit),
-    bottom: byScoreAsc.slice(0, limit),
-    total: entries.length
+    top,
+    bottom,
+    // "Werke insgesamt" counts every live work, not just the rated subset shown
+    // in the lists — the active-images count, taken before the rated-filter.
+    total: activeImages.length
   });
 });
 
@@ -247,7 +283,7 @@ app.get("/saved/:folder/:file", (req, res) => {
   if (!resolved.startsWith(path.resolve(SAVE_PATH) + path.sep)) return res.sendStatus(404);
   // dotfiles:'allow' is needed because the default SAVE_PATH lives under
   // ~/.local/share — without this Express's sendFile rejects the path.
-  res.sendFile(resolved, { dotfiles: 'allow' }, (err) => { if (err) res.sendStatus(404); });
+  res.sendFile(resolved, { dotfiles: 'allow' }, (err) => { if (err && !res.headersSent) res.sendStatus(404); });
 });
 
 // ----------------------------------
@@ -273,7 +309,9 @@ app.get("/theme-image/:filename", (req, res) => {
   res.sendFile(filePath, (err) => {
     if (err) {
       console.error("Error serving image:", filePath, err.message);
-      res.status(404).send('Image not found');
+      // Aborted mid-transfer (EPIPE etc.): headers are already out, responding
+      // again would throw ERR_HTTP_HEADERS_SENT and crash the whole process.
+      if (!res.headersSent) res.status(404).send('Image not found');
     }
   });
 });
@@ -315,11 +353,28 @@ io.on("connection", (socket) => {
     settings: serverSettings
   });
 
-  // iPad sends drawing + movementType. We acknowledge with the new sessionId.
+  // iPad sends drawing + theme/category. We acknowledge with the new sessionId.
   // Drawing is buffered in RAM only — nothing hits the disk until finalizeArtwork.
-  socket.on("sendImage", ({ dataUrl, movementType, facingDirection }, ack) => {
+  socket.on("sendImage", ({ dataUrl, themeName, movementType, facingDirection }, ack) => {
     if (!dataUrl || typeof dataUrl !== 'string') {
       if (typeof ack === 'function') ack({ ok: false, error: 'missing_dataUrl' });
+      return;
+    }
+    if (!movementType || typeof movementType !== 'string') {
+      if (typeof ack === 'function') ack({ ok: false, error: 'missing_movementType' });
+      return;
+    }
+
+    const requestedThemeName = typeof themeName === 'string' ? themeName : null;
+    const activeServerThemeName = serverConfig && serverConfig.activeTheme;
+    const candidateThemeNames = [requestedThemeName, activeServerThemeName].filter(Boolean);
+    const resolvedThemeName = candidateThemeNames.find(name => {
+      const theme = serverConfig && serverConfig.themes && serverConfig.themes[name];
+      return theme && Array.isArray(theme.categories) && theme.categories.some(cat => cat.id === movementType);
+    });
+
+    if (!resolvedThemeName) {
+      if (typeof ack === 'function') ack({ ok: false, error: 'invalid_theme_or_category' });
       return;
     }
 
@@ -331,13 +386,14 @@ io.on("connection", (socket) => {
     sessionStorage.set(sessionId, {
       drawingDataUrl: dataUrl,
       timestamp,
+      themeName: resolvedThemeName,
       movementType,
       facingDirection: facing,
       imageId,
       expiresAt: Date.now() + SESSION_TTL_MS
     });
 
-    console.log(`[${sessionId}] sendImage cat=${movementType} facing=${facing} bytes=${dataUrl.length}`);
+    console.log(`[${sessionId}] sendImage theme=${resolvedThemeName} cat=${movementType} facing=${facing} bytes=${dataUrl.length}`);
 
     // Acknowledge synchronously so the iPad knows the sessionId BEFORE redirecting
     if (typeof ack === 'function') ack({ ok: true, sessionId });
@@ -345,7 +401,7 @@ io.on("connection", (socket) => {
     // Persisted shape for activeImages (no sessionId — that's a one-shot signal
     // for the screenshot, not part of the floating image's identity).
     const imageData = {
-      id: imageId, dataUrl, movementType, facingDirection: facing, timestamp,
+      id: imageId, dataUrl, themeName: resolvedThemeName, movementType, facingDirection: facing, timestamp,
       score: 0,
       votes: { veryGood: 0, good: 0, bad: 0, veryBad: 0 }
     };
@@ -362,10 +418,6 @@ io.on("connection", (socket) => {
     }
 
     activeImages.push(imageData);
-    // Register for the in-memory scoreboard right away (score 0, name filled in
-    // on save). Same object ref as activeImages, so later Kritiker votes update
-    // the board automatically — and the entry survives the image leaving the wall.
-    scoreboardRegistry.set(imageId, imageData);
     io.emit("newImage", imageData);
     io.emit("admin:updateGallery", activeImages);
     // The wall-PC sees this newImage event and renders it; the headless
@@ -461,8 +513,8 @@ io.on("connection", (socket) => {
       }
     }
 
-    // Scoreboard updates automatically — `image` is the same object stored in
-    // scoreboardRegistry. Here we only flush the score to disk (no-op if unsaved).
+    // Scoreboard reads activeImages directly, so this vote is already reflected.
+    // Here we only flush the score to disk (no-op if unsaved).
     updateSavedScore(image.savedFolder, image.score, image.votes);
 
     if (removed) {
@@ -522,15 +574,11 @@ io.on("connection", (socket) => {
 
   // Admin updates Theme Config
   socket.on("admin:updateConfig", (newConfig) => {
-    serverConfig = newConfig;
-    saveConfig();
-    io.emit("config:changed", serverConfig);
+    applyConfig(newConfig);
   });
 
   socket.on("saveConfig", (newConfig, callback) => {
-    serverConfig = newConfig;
-    saveConfig();
-    io.emit("config:changed", serverConfig);
+    applyConfig(newConfig);
     if (callback) callback({ ok: true });
   });
 
@@ -595,10 +643,17 @@ io.on("connection", (socket) => {
 
     // Build the final folder path (suffix-disambiguated)
     const sanitizedName = sanitizeUsername(trimmed);
-    const dateStr = new Date(sess.timestamp)
-      .toISOString()
-      .replace(/[T:]/g, '_')
-      .split('.')[0];
+    // Ordnername mit deutschem Datum (TT-MM-JJJJ_HH_MM_SS) in Europe/Berlin-
+    // Zeit. Bewusst nicht getHours() o. Ae.: der Container laeuft auf UTC, daher
+    // rechnen wir die Zeitzone hier explizit — DST-sicher (Sommer +2h, Winter +1h).
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Berlin',
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(new Date(sess.timestamp));
+    const dp = (type) => parts.find((p) => p.type === type).value;
+    const dateStr = `${dp('day')}-${dp('month')}-${dp('year')}_${dp('hour')}_${dp('minute')}_${dp('second')}`;
     let finalFolderName = `${sanitizedName}_${dateStr}`;
     let finalPath = path.join(SAVE_PATH, finalFolderName);
     let suffix = 1;
@@ -630,6 +685,7 @@ io.on("connection", (socket) => {
         sanitizedName,
         timestamp: sess.timestamp,
         date: new Date(sess.timestamp).toISOString(),
+        themeName: sess.themeName || null,
         movementType: sess.movementType || null,
         facingDirection: sess.facingDirection || 'right',
         hasScreenshot: !!mainCanvasBuffer,
@@ -655,15 +711,15 @@ io.on("connection", (socket) => {
         console.error(`[${sessionId}] polaroid render failed:`, err.message);
       }
 
-      // Bind the saved folder to the live image so subsequent Kritiker votes
-      // can flush the updated score back into metadata.json (archival on disk).
-      if (liveImage) liveImage.savedFolder = finalFolderName;
-
-      // Stamp the entered name onto the scoreboard registry entry. Done by id so
-      // it works even if the image already faded off the wall (gone from
-      // activeImages) — the registry still holds it.
-      const regEntry = scoreboardRegistry.get(sess.imageId);
-      if (regEntry) regEntry.name = trimmed;
+      // Bind the saved folder + entered name to the live image so subsequent
+      // Kritiker votes flush the updated score into metadata.json, and the
+      // scoreboard (which reads activeImages) shows the real name instead of
+      // "Anonym". If the work already left the wall there's nothing to stamp —
+      // it's off the board anyway, which is the intended single-source behaviour.
+      if (liveImage) {
+        liveImage.savedFolder = finalFolderName;
+        liveImage.name = trimmed;
+      }
 
       // Tell the scoreboard the name changed (it may have been rated and shown as
       // "Anonym" while the visitor was still on the name-entry screen). Clients
