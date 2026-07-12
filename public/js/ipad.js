@@ -83,12 +83,9 @@ socket.on('config:changed', (newConfig) => {
 function updateThemeNameInHelp() {
     if (!activeThemeName) return;
     const themeDisplayNames = {
-        'ocean': 'Unterwasserwelt',
-        'jungle': 'Dschungelwelt',
-        'forest': 'Waldwelt',
-        'desert': 'Wüstenwelt',
-        'space': 'Weltraum',
-        'stadt': 'Stadtwelt'
+        'unterwasser': 'Unterwasserwelt',
+        'stadt': 'Stadtwelt',
+        'weltall': 'Weltraum'
     };
     const displayName = themeDisplayNames[activeThemeName] || activeThemeName;
     const themeNameEl = document.getElementById('themeName');

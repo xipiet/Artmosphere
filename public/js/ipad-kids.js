@@ -11,10 +11,10 @@ let originalStyles = null;
 function getMascot() {
   const theme = activeThemeName;
 
-  if (theme === "ocean") {
-    return { name: "Finn", image: "/media/shark-mascot-1.png"};
-  } else if (theme === "jungle") {
-    return { name: "Momo", image: "/media/monkey-mascot.png"};
+  if (theme === "unterwasser") {
+    return { name: "Arti", image: "/media/mascot-arti-ocean.png"};
+  } else if (theme === "weltall") {
+    return { name: "Arti", image: "/media/mascot-arti-astronaut.png"};
   }
   return { name: "Arti", image: "/media/universal-mascot-arti-color-only.png"};
 }
