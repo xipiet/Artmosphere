@@ -1,5 +1,5 @@
 {
-  "activeTheme": "stadt",
+  "activeTheme": "strand",
   "themes": {
     "weltall": {
       "image": "weltall.png",
@@ -344,7 +344,7 @@
           "driftAmplitudeMax": 30,
           "driftSpeedMin": 0.006,
           "driftSpeedMax": 0.012,
-          "scalePct": 70,
+          "scalePct": 88,
           "template": "/media/moewe.svg",
           "templateSize": "70% auto"
         },
@@ -355,12 +355,13 @@
           "style": "watercraft",
           "xMinPct": 8,
           "xMaxPct": 92,
-          "yMinPct": 52,
-          "yMaxPct": 66,
+          "yMinPct": 48,
+          "yMaxPct": 60,
           "speedMin": 0.25,
           "speedMax": 0.4,
           "template": "/media/drawing-template-watercraft.svg",
-          "templateSize": "50% auto"
+          "templateSize": "50% auto",
+          "scalePct": 180
         },
         {
           "id": "seacreature",
@@ -370,7 +371,7 @@
           "xMinPct": 8,
           "xMaxPct": 92,
           "yMinPct": 43,
-          "yMaxPct": 70,
+          "yMaxPct": 74,
           "speedMin": 0.4,
           "speedMax": 0.7,
           "walkBobAmplitudeMin": 0.5,
@@ -381,7 +382,7 @@
           "driftAmplitudeMax": 20,
           "driftSpeedMin": 0.008,
           "driftSpeedMax": 0.014,
-          "scalePct": 80,
+          "scalePct": 120,
           "template": "/media/delfin.svg",
           "templateSize": "75% auto"
         },
@@ -400,7 +401,7 @@
           "walkSpeedMax": 0.12,
           "walkTiltAmplitudeMin": 0.02,
           "walkTiltAmplitudeMax": 0.035,
-          "scalePct": 80,
+          "scalePct": 120,
           "template": "/media/krabbe.svg",
           "templateSize": "65% auto"
         },
@@ -415,7 +416,7 @@
           "yMaxPct": 96,
           "speedMin": 0.02,
           "speedMax": 0.05,
-          "scalePct": 60,
+          "scalePct": 88,
           "template": "/media/muschel.svg",
           "templateSize": "50% auto"
         }
