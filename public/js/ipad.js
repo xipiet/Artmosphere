@@ -85,7 +85,8 @@ function updateThemeNameInHelp() {
     const themeDisplayNames = {
         'unterwasser': 'Unterwasserwelt',
         'stadt': 'Stadtwelt',
-        'weltall': 'Weltraum'
+        'weltall': 'Weltraum',
+        'strand': 'Strandwelt'
     };
     const displayName = themeDisplayNames[activeThemeName] || activeThemeName;
     const themeNameEl = document.getElementById('themeName');
