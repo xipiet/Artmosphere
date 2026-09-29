@@ -35,6 +35,59 @@ Der Server läuft danach auf Port 3000 (bzw. `PORT`).
 
 **Speicherort der Kunstwerke:** Standardmäßig unter `~/.local/share/artmosphere/saved/` (XDG-Standard, kein sudo nötig). Jedes Werk landet in einem eigenen Ordner mit Zeichnung, Screenshot der Leinwand und einer `metadata.json`. Anderer Pfad per Umgebungsvariable: `ARTMOSPHERE_SAVE_PATH=/eigener/pfad node server.js`.
 
+### Nextcloud-Sync (optional)
+
+Ein systemd-Timer kopiert den Speicherort jede Minute per rclone in einen Nextcloud-Ordner, aus dem Besucher ihr Werk herunterladen. Es wird nur hochgeladen, nie gelöscht. `metadata.json` bleibt lokal.
+
+**1. Nextcloud:** Im selben Netz installieren, Benutzer `artmosphere` anlegen, als dieser einen Ordner `Artmosphere` erstellen und einen öffentlichen Link dafür erzeugen (= Download-Seite für Besucher).
+
+**2. rclone** (als root, wie der Server). `<NEXTCLOUD-IP>` und `<PASSWORT>` des Benutzers `artmosphere` einsetzen:
+
+```bash
+apt install rclone
+rclone config create nextcloud webdav url http://<NEXTCLOUD-IP>/remote.php/dav/files/artmosphere/ vendor nextcloud user artmosphere pass '<PASSWORT>' --obscure
+rclone lsd nextcloud:   # muss den Ordner Artmosphere zeigen
+```
+
+**3. Service + Timer** anlegen und starten:
+
+```bash
+cat > /etc/systemd/system/artmosphere-sync.service <<'EOF'
+[Unit]
+Description=Sync Artmosphere saved artworks to Nextcloud
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/mkdir -p /root/.local/share/artmosphere/saved
+ExecStart=/usr/bin/rclone copy /root/.local/share/artmosphere/saved nextcloud:Artmosphere --config /root/.config/rclone/rclone.conf --exclude metadata.json*
+EOF
+
+cat > /etc/systemd/system/artmosphere-sync.timer <<'EOF'
+[Unit]
+Description=Run Artmosphere sync every minute
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=60
+AccuracySec=10s
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now artmosphere-sync.timer
+```
+
+Logs: `journalctl -u artmosphere-sync`
+
+- Der Pfad im Service muss dem Speicherort entsprechen. Läuft der Server nicht als root oder mit `ARTMOSPHERE_SAVE_PATH`, anpassen.
+- Werke immer auf dem Server löschen (`rm -rf ~/.local/share/artmosphere/saved/*`). Nur in der Nextcloud gelöscht, werden sie beim nächsten Lauf wieder hochgeladen.
+
+**Optional:** `artmosphere.cc` per 308 auf den öffentlichen Ordner leiten.
+
 ## Update
 
 - ps aux | grep node <br/>
