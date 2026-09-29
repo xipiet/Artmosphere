@@ -1,5 +1,5 @@
 {
-  "activeTheme": "stadt",
+  "activeTheme": "strand",
   "themes": {
     "weltall": {
       "image": "weltall.png",
@@ -321,6 +321,104 @@
           "scalePct": 60,
           "template": "/media/schatztruhe.svg",
           "templateSize": "60% auto"
+        }
+      ]
+    },
+    "strand": {
+      "image": "strand.png",
+      "categories": [
+        {
+          "id": "seabird",
+          "icon": "🐦",
+          "label": "Seevogel",
+          "style": "walk",
+          "yMinPct": 3,
+          "yMaxPct": 40,
+          "speedMin": 0.7,
+          "speedMax": 1.1,
+          "walkBobAmplitudeMin": 1,
+          "walkBobAmplitudeMax": 2,
+          "walkTiltAmplitudeMin": 0.01,
+          "walkTiltAmplitudeMax": 0.02,
+          "driftAmplitudeMin": 15,
+          "driftAmplitudeMax": 30,
+          "driftSpeedMin": 0.006,
+          "driftSpeedMax": 0.012,
+          "scalePct": 88,
+          "template": "/media/moewe.svg",
+          "templateSize": "70% auto"
+        },
+        {
+          "id": "boat",
+          "icon": "⛵",
+          "label": "Boot",
+          "style": "watercraft",
+          "xMinPct": 8,
+          "xMaxPct": 92,
+          "yMinPct": 48,
+          "yMaxPct": 60,
+          "speedMin": 0.25,
+          "speedMax": 0.4,
+          "template": "/media/drawing-template-watercraft.svg",
+          "templateSize": "50% auto",
+          "scalePct": 180
+        },
+        {
+          "id": "seacreature",
+          "icon": "🐬",
+          "label": "Meerestier",
+          "style": "walk",
+          "xMinPct": 8,
+          "xMaxPct": 92,
+          "yMinPct": 43,
+          "yMaxPct": 74,
+          "speedMin": 0.4,
+          "speedMax": 0.7,
+          "walkBobAmplitudeMin": 0.5,
+          "walkBobAmplitudeMax": 1,
+          "walkTiltAmplitudeMin": 0.01,
+          "walkTiltAmplitudeMax": 0.02,
+          "driftAmplitudeMin": 10,
+          "driftAmplitudeMax": 20,
+          "driftSpeedMin": 0.008,
+          "driftSpeedMax": 0.014,
+          "scalePct": 120,
+          "template": "/media/delfin.svg",
+          "templateSize": "75% auto"
+        },
+        {
+          "id": "beachcreature",
+          "icon": "🦀",
+          "label": "Strandtier",
+          "style": "walk",
+          "yMinPct": 62,
+          "yMaxPct": 100,
+          "speedMin": 0.4,
+          "speedMax": 0.7,
+          "walkBobAmplitudeMin": 3,
+          "walkBobAmplitudeMax": 6,
+          "walkSpeedMin": 0.08,
+          "walkSpeedMax": 0.12,
+          "walkTiltAmplitudeMin": 0.02,
+          "walkTiltAmplitudeMax": 0.035,
+          "scalePct": 120,
+          "template": "/media/krabbe.svg",
+          "templateSize": "65% auto"
+        },
+        {
+          "id": "beachfind",
+          "icon": "🐚",
+          "label": "Strandfund",
+          "style": "still",
+          "xMinPct": 10,
+          "xMaxPct": 90,
+          "yMinPct": 80,
+          "yMaxPct": 96,
+          "speedMin": 0.02,
+          "speedMax": 0.05,
+          "scalePct": 88,
+          "template": "/media/muschel.svg",
+          "templateSize": "50% auto"
         }
       ]
     }

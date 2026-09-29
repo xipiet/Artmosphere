@@ -761,6 +761,9 @@ server.listen(PORT, () => {
 // Graceful shutdown — close Chromium so we don't leak processes
 function gracefulShutdown(signal) {
   console.log(`Received ${signal}, shutting down…`);
+  // Chromium teardown can hang (puppeteer's own signal handler races ours),
+  // which left the process — and the port — alive after `kill`. Force exit.
+  setTimeout(() => process.exit(0), 3000).unref();
   mainRenderer.shutdown().finally(() => process.exit(0));
 }
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
