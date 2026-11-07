@@ -228,8 +228,17 @@ requestAnimationFrame(() => {
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
+// Styles, die an einem festen Punkt bleiben (Schätze, Pflanzen, Himmelskörper …).
+// Neue Exemplare suchen sich bevorzugt einen freien Platz, siehe
+// placeAnchoredAvoidingOverlap().
+const ANCHORED_STYLES = ['still', 'sway', 'spin'];
+const ANCHORED_SPAWN_TRIES = 12;
+
 class FloatingImage {
-    constructor(id, img, category, facingDirection = 'right', score = 0) {
+    // options.restore: Bild wird nach Refresh/Reconnect wiederhergestellt (nicht
+    // neu gemalt) → zufällige Startposition statt Einflug vom Bildrand.
+    constructor(id, img, category, facingDirection = 'right', score = 0, options = {}) {
+        this.restoring = !!(options && options.restore);
         this.id = id;
         this.img = img;
         this.category = category; // { id, style, yMinPct, yMaxPct, speedMin, speedMax, ... }
@@ -253,6 +262,49 @@ class FloatingImage {
 
         this.initializeMovement();
         this.applyInitialDirection();
+        if (ANCHORED_STYLES.includes(this.style)) this.placeAnchoredAvoidingOverlap();
+    }
+
+    // Zufällige Position nach denselben Regeln wie initializeMovement().
+    randomAnchoredPosition() {
+        const { xMin, xMax } = this.xBounds();
+        const x = xMin + Math.random() * Math.max(0, xMax - xMin);
+        if (this.style === 'spin') {
+            const { yMin, yMax } = this.yBounds();
+            return { x, y: yMin + Math.random() * Math.max(0, yMax - yMin) };
+        }
+        const rootFraction = this.rootedFraction();
+        const { rootMin, rootMax } = this.rootedYBounds(rootFraction);
+        const root = rootMin + Math.random() * Math.max(0, rootMax - rootMin);
+        return { x, y: root - this.h * rootFraction };
+    }
+
+    // Kein hartes Verbot: mehrere Zufallsplätze probieren und den mit der
+    // geringsten Überlappung zu anderen festen Werken nehmen. Ist alles voll,
+    // landet das Werk eben auf der am wenigsten belegten Stelle.
+    placeAnchoredAvoidingOverlap() {
+        const others = activeImages.filter(o => o !== this && ANCHORED_STYLES.includes(o.style));
+        if (others.length === 0) return;
+
+        const overlapAt = (x, y) => others.reduce((sum, o) => {
+            const ox = Math.min(x + this.w, o.x + o.w) - Math.max(x, o.x);
+            const oy = Math.min(y + this.h, o.y + o.h) - Math.max(y, o.y);
+            return ox > 0 && oy > 0 ? sum + ox * oy : sum;
+        }, 0);
+
+        let best = { x: this.x, y: this.y };
+        let bestOverlap = overlapAt(best.x, best.y);
+        for (let i = 0; i < ANCHORED_SPAWN_TRIES && bestOverlap > 0; i += 1) {
+            const candidate = this.randomAnchoredPosition();
+            const overlap = overlapAt(candidate.x, candidate.y);
+            if (overlap < bestOverlap) {
+                best = candidate;
+                bestOverlap = overlap;
+            }
+        }
+        this.x = best.x;
+        this.y = best.y;
+        this.baseY = best.y;
     }
 
     detectVisibleBottomRatio() {
@@ -556,7 +608,10 @@ class FloatingImage {
             this.orbitWaitTimer = 0;
             // ot: how far past the screen edge (in t-units) the sprite starts
             const ot = (this.w / 2 + 20) / canvas.width;
-            this.orbitT = this.orbitDirection > 0 ? -ot : 1 + ot;
+            // Nach Refresh irgendwo auf der Bahn statt alle gleichzeitig vom Rand
+            this.orbitT = this.restoring
+                ? Math.random()
+                : (this.orbitDirection > 0 ? -ot : 1 + ot);
             this.vx = canvas.width * this.orbitSpeed * this.orbitDirection;
             const rawSt = this.orbitDirection > 0 ? this.orbitT : 1 - this.orbitT;
             const st = (rawSt + ot) / (1 + 2 * ot);
@@ -567,9 +622,10 @@ class FloatingImage {
 
         const { yMin, yMax } = this.yBounds();
         const { xMin, xMax } = this.xBounds();
-        if (this.style === 'walk' || this.style === 'ufo') {
+        if ((this.style === 'walk' || this.style === 'ufo') && !this.restoring) {
             // Enter from the edge matching the chosen facing direction, so the
             // very first pass already goes all the way across before bouncing.
+            // (Nur für neue Werke; nach Refresh sonst alle am Rand übereinander.)
             this.x = this.facingDirection === 'left' ? xMax : xMin;
         } else {
             this.x = xMin + Math.random() * Math.max(0, xMax - xMin);
@@ -633,7 +689,9 @@ class FloatingImage {
             this.pulseSpeed = pulseSpeedMin + Math.random() * (pulseSpeedMax - pulseSpeedMin);
             this.pulsePhase = Math.random() * Math.PI * 2;
             if (this.hasMovementPath()) {
-                this.pathProgress = this.facingDirection === 'left' ? 1 : 0;
+                this.pathProgress = this.restoring
+                    ? Math.random()
+                    : (this.facingDirection === 'left' ? 1 : 0);
                 this.pathDirection = this.facingDirection === 'left' ? -1 : 1;
                 this.positionOnMovementPath();
             }
@@ -1338,7 +1396,7 @@ socket.on("main:allImages", ({ images }) => {
             }
 
             const addImage = (finalImg) => {
-                activeImages.push(new FloatingImage(imageData.id, finalImg, category, imageData.facingDirection, imageData.score));
+                activeImages.push(new FloatingImage(imageData.id, finalImg, category, imageData.facingDirection, imageData.score, { restore: true }));
             };
 
             // Normalize size if enabled
