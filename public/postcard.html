@@ -41,11 +41,29 @@
             } catch { return ''; }
         };
 
+        // Label aus dem Theme der Kategorie (config.json), damit jedes Theme
+        // seine Kategorie auf dem Polaroid zeigt. Fehler → '' (Fallback unten).
+        const themeCategoryLabel = async (themeName, categoryId) => {
+            try {
+                const cfg = await fetch('/themes/config.json', { cache: 'no-store' }).then(r => r.json());
+                const theme = cfg && cfg.themes && cfg.themes[themeName];
+                const cat = theme && Array.isArray(theme.categories)
+                    ? theme.categories.find(c => c.id === categoryId) : null;
+                return (cat && cat.label) || '';
+            } catch (err) {
+                console.warn('config load failed', err);
+                return '';
+            }
+        };
+
         try {
             const meta = await fetch(`/saved/${folder}/metadata.json`).then(r => r.json());
             document.getElementById('name').textContent = meta.name || '';
             document.getElementById('date').textContent = formatDate(meta.date);
-            document.getElementById('icon').textContent = CATEGORY_LABELS[meta.movementType] || '';
+            const label = (await themeCategoryLabel(meta.themeName, meta.movementType))
+                || CATEGORY_LABELS[meta.movementType] || '';
+            document.getElementById('icon').textContent = label;
+            if (!label) document.querySelector('.dot').style.display = 'none';
         } catch (err) {
             console.warn('metadata load failed', err);
         }
